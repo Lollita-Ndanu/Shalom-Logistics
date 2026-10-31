@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-jungle: #006B3F;
+  --color-jungle-dark: #004D2E;
+  --color-jungle-light: #008F54;
+  --color-gold: #D4AF37;
+  --color-gold-light: #E5C85C;
+  --color-gold-dark: #B8960F;
+  --color-background: #ffffff;
+  --color-foreground: #171717;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 6px rgba(0, 107, 63, 0.4)) drop-shadow(0 0 12px rgba(212, 175, 55, 0.2));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(0, 107, 63, 0.7)) drop-shadow(0 0 24px rgba(212, 175, 55, 0.4));
+  }
+}
+
+@keyframes shimmer-sweep {
+  0% {
+    transform: translateX(-100%) skewX(-20deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  40% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(200%) skewX(-20deg);
+    opacity: 0;
+  }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer-sweep 5s ease-in-out infinite;
+}
+
+@keyframes mist-pan {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes mist-pan-reverse {
+  from {
+    transform: translateX(-50%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-mist-pan {
+  animation: mist-pan 25s linear infinite;
+}
+
+.animate-mist-pan-reverse {
+  animation: mist-pan-reverse 25s linear infinite;
+}
+
+@keyframes whatsapp-pop {
+  0%,
+  84%,
+  100% {
+    transform: scale(1);
+  }
+  88% {
+    transform: scale(1.18);
+  }
+  93% {
+    transform: scale(0.95);
+  }
+  98% {
+    transform: scale(1.05);
+  }
+}
+
+.animate-whatsapp-pop {
+  animation: whatsapp-pop 5s ease-in-out infinite;
+}
