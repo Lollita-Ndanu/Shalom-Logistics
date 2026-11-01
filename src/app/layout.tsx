@@ -28,6 +28,9 @@ export const metadata: Metadata = {
     "Shalom Logistics",
     "goods transport",
   ],
+  icons: {
+    icon: "/images/SHALOM.png",
+  },
 };
 
 export default function RootLayout({

@@ -68,7 +68,7 @@ type Testimonial = (typeof TESTIMONIALS)[number];
 
 function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
   return (
-    <div className="rounded-2xl bg-yellow-400 hover:bg-yellow-500 active:bg-yellow-600 transition-colors duration-300 cursor-pointer p-6 sm:p-8">
+    <div className="rounded-2xl bg-yellow-400 hover:bg-yellow-500 active:bg-yellow-600 transition-colors duration-300 cursor-pointer p-6 sm:p-8 max-md:[&:nth-child(n+4)]:hidden">
       <div className="flex items-center gap-4">
         <div className="h-12 w-12 shrink-0 rounded-full bg-neutral-900 text-white flex items-center justify-center text-sm font-semibold">
           {initials(testimonial.name)}

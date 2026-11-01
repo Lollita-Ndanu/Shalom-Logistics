@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 
 export default function Logo() {
   return (
-    <Link href="/" className="relative flex items-center gap-3 group" aria-label="Shalom Logistics - Home">
+    <Link href="/" className="relative flex items-center gap-3 group" aria-label="Shalom Logistics home">
       <motion.div
         className="relative flex-shrink-0"
         whileHover={{ scale: 1.08 }}
@@ -25,7 +25,7 @@ export default function Logo() {
           <span className="absolute top-0 left-[-100%] w-[30%] h-full bg-gradient-to-r from-transparent via-gold/30 to-transparent skew-x-[-20deg] animate-shimmer" />
         </span>
       </motion.div>
-      <div className="flex flex-col leading-none">
+      <div className="flex flex-col leading-none max-md:hidden">
         <span className="text-lg font-bold tracking-tight text-jungle">
           SHALOM
         </span>

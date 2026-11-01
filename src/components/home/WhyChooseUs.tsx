@@ -143,7 +143,7 @@ export default function WhyChooseUs() {
 
       <div
         ref={cardRef}
-        className="mx-4 rounded-[36px] bg-jungle px-7 py-12 relative isolate flex items-center overflow-hidden lg:mx-[4vw] lg:min-h-[670px] lg:rounded-[72px] lg:py-[120px] lg:pr-[6%] lg:pl-[54%]"
+        className="mx-4 rounded-[36px] bg-jungle px-7 pt-[144px] pb-[184px] md:py-12 relative isolate flex items-center overflow-hidden lg:mx-[4vw] lg:min-h-[670px] lg:rounded-[72px] lg:py-[120px] lg:pr-[6%] lg:pl-[54%]"
       >
         {/* TOP box */}
         <div
@@ -215,18 +215,34 @@ export default function WhyChooseUs() {
         </div>
 
         <div className="max-w-[700px] relative z-[2]">
-          <p className="text-gold text-sm font-semibold tracking-widest uppercase">
-            Why Choose Shalom
-          </p>
-          <h2 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
-            We don&apos;t just move your things &mdash; we settle you in.
-          </h2>
-          <p className="mt-6 text-white/70 text-lg leading-relaxed">
-            From careful packing to secure transport, our team handles every
-            detail so your move feels effortless. We combine years of
-            experience with a personal touch, treating your belongings like our
-            own and tailoring each relocation to your timeline and budget.
-          </p>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -inset-3 rounded-[20px] md:hidden"
+            style={{
+              background: "rgba(0, 107, 63, 0.30)",
+              backdropFilter: "blur(6px)",
+              WebkitBackdropFilter: "blur(6px)",
+              maskImage:
+                "radial-gradient(ellipse at center, #000 65%, transparent 100%)",
+              WebkitMaskImage:
+                "radial-gradient(ellipse at center, #000 65%, transparent 100%)",
+              zIndex: 0,
+            }}
+          />
+          <div className="relative z-[1] px-6 md:px-0 max-md:[text-shadow:0_1px_10px_rgba(0,40,24,0.6)]">
+            <p className="text-gold text-xs md:text-sm font-semibold tracking-widest uppercase">
+              Why Choose Shalom
+            </p>
+            <h2 className="mt-4 text-[clamp(24px,7vw,30px)] leading-[1.2] md:text-4xl md:leading-tight lg:text-5xl font-bold text-white">
+              We don&apos;t just move your things &mdash; we settle you in.
+            </h2>
+            <p className="mt-6 text-white/70 text-[15px] leading-[1.55] md:text-lg md:leading-relaxed">
+              From careful packing to secure transport, our team handles every
+              detail so your move feels effortless. We combine years of
+              experience with a personal touch, treating your belongings like our
+              own and tailoring each relocation to your timeline and budget.
+            </p>
+          </div>
         </div>
       </div>
     </section>

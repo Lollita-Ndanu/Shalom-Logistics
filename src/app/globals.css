@@ -105,3 +105,79 @@ body {
 .animate-whatsapp-pop {
   animation: whatsapp-pop 5s ease-in-out infinite;
 }
+
+@media (max-width: 767px) {
+  .hero-title {
+    font-size: clamp(26px, 8.2vw, 34px);
+    line-height: 1.15;
+  }
+
+  @keyframes mist-pan-mobile {
+    from {
+      transform: translateX(0);
+    }
+
+    to {
+      transform: translateX(-100vw);
+    }
+  }
+
+  @keyframes mist-pan-mobile-reverse {
+    from {
+      transform: translateX(-100vw);
+    }
+
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  .mobile-cloud {
+    left: -110vw;
+    width: 320vw;
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      #000 12%,
+      #000 88%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      #000 12%,
+      #000 88%,
+      transparent 100%
+    );
+  }
+
+  .mobile-cloud-top {
+    -webkit-mask-image:
+      linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%),
+      linear-gradient(to bottom, transparent 0%, #000 15%, #000 55%, transparent 100%);
+    mask-image:
+      linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%),
+      linear-gradient(to bottom, transparent 0%, #000 15%, #000 55%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
+  .mobile-cloud-bottom {
+    -webkit-mask-image:
+      linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%),
+      linear-gradient(to bottom, transparent 0%, #000 55%, #000 100%);
+    mask-image:
+      linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%),
+      linear-gradient(to bottom, transparent 0%, #000 55%, #000 100%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
+  .animate-mist-pan {
+    animation: mist-pan-mobile 25s linear infinite;
+  }
+
+  .animate-mist-pan-reverse {
+    animation: mist-pan-mobile-reverse 25s linear infinite;
+  }
+}

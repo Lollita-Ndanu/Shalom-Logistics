@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -15,6 +15,15 @@ import {
 export default function CtaBanner() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, []);
 
   const { scrollYProgress: zoomProgress } = useScroll({
     target: sectionRef,
@@ -22,6 +31,7 @@ export default function CtaBanner() {
   });
 
   const scale = useTransform(zoomProgress, [0, 1], [0.7, 1.3]);
+  const lorryScale = useTransform(zoomProgress, [0, 1], [0.7, 1]);
 
   const { scrollYProgress: entranceProgress } = useScroll({
     target: sectionRef,
@@ -39,6 +49,7 @@ export default function CtaBanner() {
   const boxesOpacity = useTransform(smooth, [0, 0.15], [0, 1]);
 
   const lorryX = useTransform(smooth, [0.1, 0.8], [500, 0], { ease: easeOut });
+  const lorryXMobile = useTransform(smooth, [0.1, 0.8], ["100%", "0%"], { ease: easeOut });
   const lorryOpacity = useTransform(smooth, [0.1, 0.25], [0, 1]);
 
   const boxOuterStyle = prefersReducedMotion
@@ -47,12 +58,12 @@ export default function CtaBanner() {
 
   const lorryOuterStyle = prefersReducedMotion
     ? { x: 0, opacity: 1 }
-    : { x: lorryX, opacity: lorryOpacity };
+    : { x: isMobile ? lorryXMobile : lorryX, opacity: lorryOpacity };
 
   return (
     <section
       ref={sectionRef}
-      className="min-h-full flex flex-col items-center justify-center bg-gold px-4 py-16 relative overflow-hidden"
+      className="min-h-full flex flex-col items-center justify-center bg-gold px-4 py-16 pb-[calc(min(38.67vw,186.67px)+24px)] md:pb-16 relative overflow-hidden"
     >
       {/* Box overlay — left side */}
       <motion.div
@@ -75,11 +86,11 @@ export default function CtaBanner() {
 
       {/* Lorry overlay — right side */}
       <motion.div
-        className="absolute right-0 bottom-0 pointer-events-none select-none will-change-transform"
+        className="absolute right-[3%] bottom-0 w-[58vw] max-w-[280px] h-auto pointer-events-none select-none will-change-transform md:right-0 md:w-auto md:max-w-none"
         style={lorryOuterStyle}
       >
         <motion.div
-          style={{ scale }}
+          style={{ scale: isMobile ? lorryScale : scale }}
           className="will-change-transform"
         >
           <Image
@@ -87,7 +98,7 @@ export default function CtaBanner() {
             alt="Shalom Logistics truck"
             width={480}
             height={320}
-            className="w-auto h-56 sm:h-72 md:h-96 lg:h-[28rem] object-contain opacity-80"
+            className="w-full h-auto md:w-auto md:h-96 lg:h-[28rem] object-contain opacity-80"
           />
         </motion.div>
       </motion.div>
@@ -96,7 +107,7 @@ export default function CtaBanner() {
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gold/80 to-transparent pointer-events-none z-10" />
 
       {/* Content */}
-      <div className="text-center relative z-20">
+      <div className="text-center relative z-20 translate-y-[calc((min(38.67vw,186.67px)+24px-4rem)/2)] md:translate-y-0">
         <h2 className="text-3xl sm:text-4xl font-bold text-jungle-dark">
           Ready to make your move?
         </h2>

@@ -102,13 +102,13 @@ export default function ServicesMarqueeSection() {
         </p>
       </div>
 
-      <div className="relative flex items-center gap-2 sm:gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="relative flex flex-wrap items-center justify-center gap-4 px-4 sm:px-6 md:flex-nowrap md:justify-start lg:px-8">
         <button
           type="button"
           onClick={() => scrollByCard("left")}
           disabled={!canScrollLeft}
           aria-label="Scroll left"
-          className="shrink-0 w-10 h-10 rounded-full border border-gray-300 bg-white text-gray-700 flex items-center justify-center hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="order-2 shrink-0 w-10 h-10 rounded-full border border-gray-300 bg-white text-gray-700 flex items-center justify-center hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors md:order-none"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -116,32 +116,32 @@ export default function ServicesMarqueeSection() {
         <div
           ref={containerRef}
           onScroll={updateArrows}
-          className="services-rail overflow-x-auto overscroll-x-contain scroll-smooth touch-pan-x flex-1"
+          className="services-rail order-1 w-full min-w-0 flex-none overflow-x-auto overscroll-x-contain scroll-smooth [touch-action:pan-x_pan-y] md:order-none md:w-auto md:flex-1"
         >
           <div className="flex w-max">
             {SERVICES.map((service) => (
               <Link
                 key={service.title}
                 href="/services"
-                className="w-72 sm:w-80 shrink-0 mr-6 rounded-2xl border border-gray-200 bg-white overflow-hidden text-left group"
+                className="w-[260px] md:w-80 shrink-0 mr-6 rounded-2xl border border-gray-200 bg-white overflow-hidden text-left group [touch-action:pan-x_pan-y]"
               >
-                <div className="relative h-44 w-full overflow-hidden">
+                <div className="relative h-40 md:h-44 w-full overflow-hidden">
                   <Image
                     src={service.image}
                     alt={service.title}
                     fill
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    sizes="(max-width: 640px) 288px, 320px"
+                    sizes="(max-width: 767px) 260px, 320px"
                   />
                 </div>
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold text-gray-900">
+                <div className="p-[22px] md:p-6">
+                  <h3 className="text-lg leading-6 md:text-xl md:leading-7 font-semibold text-gray-900">
                     {service.title}
                   </h3>
-                  <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+                  <p className="mt-2 text-[13px] md:text-sm text-gray-600 leading-relaxed">
                     {service.desc}
                   </p>
-                  <p className="mt-3 text-sm text-gray-400 leading-relaxed">
+                  <p className="mt-3 text-[13px] md:text-sm text-gray-400 leading-relaxed">
                     {service.detail}
                   </p>
                 </div>
@@ -155,7 +155,7 @@ export default function ServicesMarqueeSection() {
           onClick={() => scrollByCard("right")}
           disabled={!canScrollRight}
           aria-label="Scroll right"
-          className="shrink-0 w-10 h-10 rounded-full border border-gray-300 bg-white text-gray-700 flex items-center justify-center hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="order-3 shrink-0 w-10 h-10 rounded-full border border-gray-300 bg-white text-gray-700 flex items-center justify-center hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors md:order-none"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
