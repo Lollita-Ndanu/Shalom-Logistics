@@ -72,11 +72,11 @@ export default function HowItWorks() {
     getCardProgress(value, 0.68, 0.91)
   );
 
-  const cardTwoTransform = useMotionTemplate`translateY(${cardTwoProgress}vh)`;
+  const cardTwoTransform = useMotionTemplate`translateY(${cardTwoProgress}svh)`;
   const cardThreeTransform =
-    useMotionTemplate`translateY(${cardThreeProgress}vh)`;
+    useMotionTemplate`translateY(${cardThreeProgress}svh)`;
   const cardFourTransform =
-    useMotionTemplate`translateY(${cardFourProgress}vh)`;
+    useMotionTemplate`translateY(${cardFourProgress}svh)`;
 
   const cardTransforms = [
     undefined,
@@ -89,14 +89,14 @@ export default function HowItWorks() {
     <section
       ref={sectionRef}
       aria-labelledby="how-it-works-heading"
-      className="how-it-works-pin relative h-[400dvh] overflow-x-clip bg-jungle text-white"
+      className="how-it-works-pin relative h-[400svh] overflow-x-clip bg-jungle text-white"
     >
       <style>{`
         .how-it-works-card-offset {
-          transform: translateY(100vh);
+          transform: translateY(100svh);
         }
 
-        @media (max-height: 699px), (prefers-reduced-motion: reduce) {
+        @media (prefers-reduced-motion: reduce) {
           .how-it-works-pin {
             height: auto !important;
           }
@@ -135,7 +135,7 @@ export default function HowItWorks() {
         </svg>
       </div>
 
-      <div className="how-it-works-stage sticky top-0 z-0 h-dvh overflow-hidden bg-jungle">
+      <div className="how-it-works-stage sticky top-0 z-0 h-svh overflow-hidden bg-jungle">
         <div className="mx-auto max-w-7xl px-6 pt-[72px] pb-[88px] sm:px-6 sm:pt-24 sm:pb-28 lg:px-8 lg:pt-[140px] lg:pb-[160px]">
           <div className="mx-auto max-w-3xl text-center">
             <h2
