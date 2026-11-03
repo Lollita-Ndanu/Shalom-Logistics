@@ -121,16 +121,19 @@ export default function HowItWorks() {
         }
       `}</style>
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-14 sm:h-20 lg:h-24">
+      <div
+        className="pointer-events-none absolute inset-x-0 z-10 h-14 overflow-hidden sm:h-20 lg:h-24"
+        style={{ bottom: "calc(100% - 1px)" }}
+      >
         <svg
           viewBox="0 0 1440 140"
           preserveAspectRatio="none"
-          className="block h-full w-full"
+          className="-mb-px block h-full w-full align-top leading-none"
           aria-hidden="true"
         >
           <path
-            d="M0,80 C240,20 480,140 720,80 C960,20 1200,140 1440,80 L1440,0 L0,0 Z"
-            className="fill-white"
+            d="M0,80 C240,20 480,140 720,80 C960,20 1200,140 1440,80 L1440,140 L0,140 Z"
+            className="fill-jungle"
           />
         </svg>
       </div>

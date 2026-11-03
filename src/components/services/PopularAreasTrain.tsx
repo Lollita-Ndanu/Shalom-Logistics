@@ -6,7 +6,7 @@ const AREAS = [
   {
     name: "Nairobi",
     subtitle: "The Green City in the Sun",
-    image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/92/Nairobi_skyline.jpg/960px-Nairobi_skyline.jpg",
+    image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/60/Aerial_view_of_the_Nairobi_skyline_from_the_KICC_rooftop_at_golden_hour.jpg/500px-Aerial_view_of_the_Nairobi_skyline_from_the_KICC_rooftop_at_golden_hour.jpg",
   },
   {
     name: "Mombasa",
@@ -49,10 +49,10 @@ export default function PopularAreasTrain() {
   return (
     <section
       aria-labelledby="popular-areas-heading"
-      className="relative z-10 overflow-visible bg-black py-20 text-white sm:py-24 lg:py-28"
+      className="popular-areas-section relative z-10 overflow-visible bg-black py-20 text-white sm:py-24 lg:py-28"
     >
       <div
-        className="pointer-events-none absolute inset-x-0 -top-16 z-10 h-16 sm:-top-20 sm:h-20 lg:-top-24 lg:h-24"
+        className="popular-areas-desktop-wave pointer-events-none absolute inset-x-0 -top-16 z-10 h-16 sm:-top-20 sm:h-20 lg:-top-24 lg:h-24"
         aria-hidden="true"
       >
         <svg
@@ -67,7 +67,38 @@ export default function PopularAreasTrain() {
         </svg>
       </div>
 
+      <div
+        className="popular-areas-mobile-wave pointer-events-none absolute inset-x-0 top-0 z-0 hidden h-8"
+        aria-hidden="true"
+      >
+        <svg
+          viewBox="0 0 1440 100"
+          preserveAspectRatio="none"
+          className="block h-full w-full"
+        >
+          <path
+            d="M0,0 H1440 V38 C1200,70 960,6 720,38 C480,70 240,6 0,38 Z"
+            className="fill-jungle"
+          />
+        </svg>
+      </div>
+
       <style>{`
+        @media (max-width: 767px) {
+          .popular-areas-section {
+            z-index: auto;
+            overflow: hidden;
+          }
+
+          .popular-areas-desktop-wave {
+            display: none;
+          }
+
+          .popular-areas-mobile-wave {
+            display: block;
+          }
+        }
+
         @keyframes popular-areas-train {
           from { transform: translate3d(0, 0, 0); }
           to { transform: translate3d(-50%, 0, 0); }
@@ -89,7 +120,7 @@ export default function PopularAreasTrain() {
         }
       `}</style>
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold sm:text-sm">
             Moving across Kenya
@@ -108,7 +139,7 @@ export default function PopularAreasTrain() {
       </div>
 
       <div
-        className="mt-12 overflow-hidden pl-5 sm:mt-16 sm:pl-6"
+        className="relative z-10 mt-12 overflow-hidden pl-5 sm:mt-16 sm:pl-6"
         aria-label="Popular areas"
       >
         <div className="popular-areas-track flex w-max">
