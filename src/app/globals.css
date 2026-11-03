@@ -13,10 +13,74 @@
   --font-mono: var(--font-geist-mono);
 }
 
+@keyframes text-shine-sweep {
+  0% {
+    background-position: 100% 0;
+  }
+
+  22% {
+    background-position: 0% 0;
+  }
+
+  100% {
+    background-position: 0% 0;
+  }
+}
+
+.text-shine {
+  --shine-base: var(--color-jungle);
+  --shine-peak: #eafff1;
+  display: inline-block;
+  background-image: linear-gradient(
+    110deg,
+    var(--shine-base) 0%,
+    var(--shine-base) 38%,
+    var(--shine-peak) 50%,
+    var(--shine-base) 62%,
+    var(--shine-base) 100%
+  );
+  background-position: 100% 0;
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  will-change: background-position;
+  animation: text-shine-sweep 4.5s ease-in-out infinite;
+}
+
+@supports not (background-clip: text) {
+  .text-shine {
+    animation: none;
+    background: none;
+    color: var(--shine-base);
+    -webkit-text-fill-color: var(--shine-base);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text-shine {
+    animation: none;
+    background: none;
+    color: var(--shine-base);
+    -webkit-text-fill-color: var(--shine-base);
+  }
+}
+
 body {
   background: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 @keyframes glow-pulse {

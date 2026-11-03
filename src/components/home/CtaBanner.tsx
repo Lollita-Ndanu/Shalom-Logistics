@@ -12,7 +12,27 @@ import {
   easeOut,
 } from "framer-motion";
 
-export default function CtaBanner() {
+interface CtaBannerProps {
+  heading?: string;
+  subtext?: string;
+  primaryLabel?: string;
+  primaryHref?: string;
+  secondaryLabel?: string;
+  secondaryHref?: string;
+  secondaryTarget?: "_blank" | "_self";
+  secondaryRel?: string;
+}
+
+export default function CtaBanner({
+  heading = "Ready to make your move?",
+  subtext = "Let us settle you in. Get a free quote today.",
+  primaryLabel = "Get a Quote",
+  primaryHref = "/quote",
+  secondaryLabel = "Or call 0751-794728",
+  secondaryHref = "tel:0751-794728",
+  secondaryTarget,
+  secondaryRel,
+}: CtaBannerProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
   const [isMobile, setIsMobile] = useState(false);
@@ -109,23 +129,25 @@ export default function CtaBanner() {
       {/* Content */}
       <div className="text-center relative z-20 translate-y-[calc((min(38.67vw,186.67px)+24px-4rem)/2)] md:translate-y-0">
         <h2 className="text-3xl sm:text-4xl font-bold text-jungle-dark">
-          Ready to make your move?
+          {heading}
         </h2>
         <p className="mt-4 text-jungle-dark/70 text-lg">
-          Let us settle you in. Get a free quote today.
+          {subtext}
         </p>
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
-            href="/quote"
+            href={primaryHref}
             className="inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-jungle-dark hover:bg-jungle text-white text-base font-semibold transition-all duration-300 shadow-xl shadow-jungle-dark/20 hover:-translate-y-0.5"
           >
-            Get a Quote
+            {primaryLabel}
           </Link>
           <a
-            href="tel:0751-794728"
+            href={secondaryHref}
+            target={secondaryTarget}
+            rel={secondaryRel}
             className="text-jungle-dark hover:text-jungle text-lg font-semibold transition-colors duration-200"
           >
-            Or call 0751-794728
+            {secondaryLabel}
           </a>
         </div>
       </div>
