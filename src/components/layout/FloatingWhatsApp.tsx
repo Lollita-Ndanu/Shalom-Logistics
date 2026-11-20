@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-const WHATSAPP_URL = "https://wa.me/254745980198";
+const WHATSAPP_URL = "https://wa.me/254751794728";
 
 export default function FloatingWhatsApp() {
   return (

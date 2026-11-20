@@ -209,7 +209,7 @@ export default function Hero() {
             Get a Quote
           </Link>
           <a
-            href="tel:0751-794728"
+            href="tel:+254751794728"
             className="inline-flex items-center justify-center px-8 py-3.5 rounded-xl border-2 border-white/40 text-white hover:border-gold hover:text-gold text-base font-semibold transition-all duration-300 hover:-translate-y-0.5 max-md:h-12 max-sm:w-full max-md:px-6 max-md:py-0"
           >
             Call Us

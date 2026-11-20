@@ -3,8 +3,8 @@ import type { NavLink, SocialLink, BusinessInfo } from "@/types";
 export const BUSINESS_INFO: BusinessInfo = {
   name: "Shalom Logistics",
   tagline: "We settle you in.",
-  phone1: "0751-794728",
-  phone2: "0745-980198",
+  phone1: "+254 751 794 728",
+  phone2: "+254 745 980 198",
   email: "info@shalommovers.co.ke",
   address: "Nairobi, Kenya",
 };
@@ -40,7 +40,7 @@ export const SOCIAL_LINKS: SocialLink[] = [
   {
     platform: "WhatsApp",
     handle: BUSINESS_INFO.phone1,
-    url: `https://wa.me/${BUSINESS_INFO.phone1.replace(/-/g, "")}`,
+    url: `https://wa.me/${BUSINESS_INFO.phone1.replace(/\D/g, "")}`,
     icon: "/images/whatsapp.png",
   },
 ];

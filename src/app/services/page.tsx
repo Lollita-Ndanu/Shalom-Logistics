@@ -37,7 +37,7 @@ export default function ServicesPage() {
             primaryLabel="Get Your Free Quote"
             primaryHref="/quote"
             secondaryLabel="Chat on WhatsApp"
-            secondaryHref="https://wa.me/254745980198"
+            secondaryHref="https://wa.me/254751794728"
             secondaryTarget="_blank"
             secondaryRel="noopener noreferrer"
           />

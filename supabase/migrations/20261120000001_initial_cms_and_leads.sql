@@ -219,8 +219,8 @@ insert into public.site_sections (section_key, label, is_visible, content) value
 }'::jsonb),
 ('footer', 'Footer & Contact Info', true, '{
   "tagline": "Reliable residential and commercial movers across Kenya & East Africa.",
-  "phone": "+254 700 000 000",
-  "whatsappNumber": "254700000000",
+  "phone": "+254 751 794 728",
+  "whatsappNumber": "254751794728",
   "email": "info@shalommovers.co.ke",
   "address": "Nairobi, Kenya",
   "copyrightText": "© 2026 Shalom Movers. All rights reserved.",

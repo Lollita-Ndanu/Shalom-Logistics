@@ -107,7 +107,7 @@ Business information and social links are centralized in `src/lib/constants.ts`:
 
 - Business name: Shalom Logistics
 - Tagline: `We settle you in.`
-- Phone numbers: `0751-794728` and `0745-980198`
+- Phone numbers: `+254 751 794 728` and `+254 745 980 198`
 - Email: `info@shalommovers.co.ke`
 - Address: Nairobi, Kenya
 - Social profiles: Facebook, Instagram, TikTok, and WhatsApp

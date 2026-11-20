@@ -28,8 +28,8 @@ export default function CtaBanner({
   subtext = "Let us settle you in. Get a free quote today.",
   primaryLabel = "Get a Quote",
   primaryHref = "/quote",
-  secondaryLabel = "Or call 0751-794728",
-  secondaryHref = "tel:0751-794728",
+  secondaryLabel = "Or call +254 751 794 728",
+  secondaryHref = "tel:+254751794728",
   secondaryTarget,
   secondaryRel,
 }: CtaBannerProps) {
