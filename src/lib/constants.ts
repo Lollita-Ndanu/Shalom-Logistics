@@ -45,6 +45,15 @@ export const SOCIAL_LINKS: SocialLink[] = [
   },
 ];
 
+export const FOOTER_SERVICES = [
+  "Home Relocation",
+  "Office Moves",
+  "Goods Transport",
+  "CCTV Installation",
+  "Water Filters",
+  "Cleaning",
+] as const;
+
 export const BRAND = {
   jungle: "#006B3F",
   "jungle-dark": "#004D2E",

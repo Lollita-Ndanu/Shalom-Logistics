@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+:root {
+  --ink: color-mix(in srgb, var(--jungle, var(--color-jungle)) 20%, black);
+}
+
 @theme inline {
   --color-jungle: #006B3F;
   --color-jungle-dark: #004D2E;

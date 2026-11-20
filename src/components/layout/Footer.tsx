@@ -3,16 +3,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Phone, Mail, MapPin, ExternalLink } from "lucide-react";
-import { SOCIAL_LINKS, BUSINESS_INFO, NAV_LINKS } from "@/lib/constants";
-
-const SERVICES = [
-  "Home Relocation",
-  "Office Moves",
-  "Goods Transport",
-  "CCTV Installation",
-  "Water Filters",
-  "Cleaning",
-] as const;
+import {
+  SOCIAL_LINKS,
+  BUSINESS_INFO,
+  NAV_LINKS,
+  FOOTER_SERVICES,
+} from "@/lib/constants";
 
 export default function Footer() {
   return (
@@ -90,7 +86,7 @@ export default function Footer() {
           <div>
             <h4 className="text-sm font-semibold text-gold">Services</h4>
             <ul className="mt-5 space-y-3">
-              {SERVICES.map((service) => (
+              {FOOTER_SERVICES.map((service) => (
                 <li key={service}>
                   <Link
                     href="/services"

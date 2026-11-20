@@ -1,45 +1,46 @@
 "use client";
 
 import Image from "next/image";
+import { AREA_DESTINATIONS } from "@/lib/area-destinations";
 
 const AREAS = [
   {
-    name: "Nairobi",
+    name: AREA_DESTINATIONS[0],
     subtitle: "The Green City in the Sun",
     image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/60/Aerial_view_of_the_Nairobi_skyline_from_the_KICC_rooftop_at_golden_hour.jpg/500px-Aerial_view_of_the_Nairobi_skyline_from_the_KICC_rooftop_at_golden_hour.jpg",
   },
   {
-    name: "Mombasa",
+    name: AREA_DESTINATIONS[1],
     subtitle: "The White and Blue City",
     image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f9/Entering_the_old_town%2C_Mombasa.jpg/500px-Entering_the_old_town%2C_Mombasa.jpg",
   },
   {
-    name: "Kisumu",
+    name: AREA_DESTINATIONS[2],
     subtitle: "The Lakeside City",
     image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/86/Aerial_view_of_Kisumu.jpg/500px-Aerial_view_of_Kisumu.jpg",
   },
   {
-    name: "Nakuru",
+    name: AREA_DESTINATIONS[3],
     subtitle: "The Flamingo City",
     image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/43/Lake_Nakuru_flamingos.jpg/960px-Lake_Nakuru_flamingos.jpg",
   },
   {
-    name: "Eldoret",
+    name: AREA_DESTINATIONS[4],
     subtitle: "The City of Champions",
     image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0b/Eldoret_3.JPG/960px-Eldoret_3.JPG",
   },
   {
-    name: "Thika",
+    name: AREA_DESTINATIONS[5],
     subtitle: "The Birmingham of Kenya",
     image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/20/Fourteen_falls_Thika%2CKenya.JPG/960px-Fourteen_falls_Thika%2CKenya.JPG",
   },
   {
-    name: "Naivasha",
+    name: AREA_DESTINATIONS[6],
     subtitle: "Kenya's Flower-Growing Hub",
     image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d8/Lake_Naivasha.jpg/960px-Lake_Naivasha.jpg",
   },
   {
-    name: "Machakos",
+    name: AREA_DESTINATIONS[7],
     subtitle: "The Green and Clean Town",
     image: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/17/Machakos-Kenia_Rd.jpg/960px-Machakos-Kenia_Rd.jpg",
   },
