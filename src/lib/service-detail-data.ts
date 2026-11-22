@@ -5,11 +5,48 @@ export type ServiceDetail = {
   title: string;
   intro: string;
   image: string;
-  services: { id: string; name: string; description: string; image?: string }[];
+  services: { id: string; name: string; description: string; image?: string; imageAlt?: string; isVisible?: boolean }[];
+  isVisible?: boolean;
+  breadcrumbLabel?: string;
+  cardQuoteLabel?: string;
+  cardImageAlt?: string;
+  cardImageAltTemplate?: string;
+  bottomCtaHeading?: string;
+  bottomCtaBody?: string;
+  bottomCtaQuoteLabel?: string;
+  bottomCtaQuoteHref?: string;
+  bottomCtaServicesLabel?: string;
+  bottomCtaServicesHref?: string;
 };
 
-const photo = (id: string) =>
-  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=720&q=75`;
+const photo = (id: string) => ({
+  "photo-1600585154340-be6161a56a0c": "/images/slots/home-home-relocation.webp",
+  "photo-1600518464441-9154a4dea21b": "/images/slots/home-home-relocation.webp",
+  "photo-1555041469-a586c61ea9bc": "/images/slots/home-home-relocation.webp",
+  "photo-1616486338812-3dadae4b4ace": "/images/slots/home-home-relocation.webp",
+  "photo-1497366754035-f200968a6e72": "/images/slots/home-office-moves.webp",
+  "photo-1558494949-ef010cbdcc31": "/images/slots/home-office-moves.webp",
+  "photo-1521737711867-e3b97375f902": "/images/slots/home-office-moves.webp",
+  "photo-1586528116311-ad8dd3c8310d": "/images/slots/home-office-moves.webp",
+  "photo-1449824913935-59a10b8d2000": "/images/slots/home-goods-transport.webp",
+  "photo-1464219789935-c2d9d9aba644": "/images/slots/home-goods-transport.webp",
+  "photo-1494412519320-aa613dfb7738": "/images/slots/home-goods-transport.webp",
+  "photo-1506157786151-b8491531f063": "/images/slots/home-goods-transport.webp",
+  "photo-1580674285054-bed31e145f59": "/images/slots/home-goods-transport.webp",
+  "photo-1577083552431-6e5fd01aa342": "/images/slots/home-goods-transport.webp",
+  "photo-1520523839897-bd0b52f945a0": "/images/slots/home-goods-transport.webp",
+  "photo-1543466835-00a7907e9de1": "/images/slots/home-goods-transport.webp",
+  "photo-1600880292203-757bb62b4baf": "/images/slots/home-goods-transport.webp",
+  "photo-1600210492486-724fe5c67fb0": "/images/slots/home-home-relocation.webp",
+  "photo-1581578731548-c64695cc6952": "/images/slots/home-cleaning.webp",
+  "photo-1511795409834-ef04bbd61622": "/images/slots/home-cleaning.webp",
+  "photo-1504307651254-35680f356dfd": "/images/slots/home-cleaning.webp",
+  "photo-1566073771259-6a8506099945": "/images/slots/home-cleaning.webp",
+  "photo-1581092160562-40aa08e78837": "/images/slots/home-cleaning.webp",
+  "photo-1497366811353-6870744d04b2": "/images/slots/home-office-moves.webp",
+  "photo-1600166898405-da9535204843": "/images/slots/home-cleaning.webp",
+  "photo-1584820927498-cfe5211fd8bf": "/images/slots/home-cleaning.webp",
+} as Record<string, string>)[id] ?? "/images/slots/home-goods-transport.webp";
 
 export const SERVICE_DETAILS: Record<ServiceCategorySlug, ServiceDetail> = {
   "residential-moving": {

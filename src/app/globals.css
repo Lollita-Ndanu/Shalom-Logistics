@@ -1,7 +1,9 @@
 @import "tailwindcss";
 
 :root {
+  --tint: color-mix(in srgb, var(--jungle, var(--color-jungle)) 4%, white);
   --ink: color-mix(in srgb, var(--jungle, var(--color-jungle)) 20%, black);
+  --whatsapp: #25D366;
 }
 
 @theme inline {
@@ -79,6 +81,11 @@ body {
 
 html {
   scroll-behavior: smooth;
+}
+
+h1,
+h2 {
+  text-wrap: balance;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -7,8 +7,10 @@ import { Menu } from "lucide-react";
 import Logo from "./Logo";
 import MobileMenu from "./MobileMenu";
 import { NAV_LINKS } from "@/lib/constants";
+import type { NavLink } from "@/types";
 
-export default function Navbar() {
+export default function Navbar({ navLinks = NAV_LINKS, quoteLabel = "Get a Quote", quoteHref = "/quote", logoUrl, companyName, phone1, phone2 }: { navLinks?: NavLink[]; quoteLabel?: string; quoteHref?: string; logoUrl?: string; companyName?: string; phone1?: string; phone2?: string }) {
+  const safeQuoteHref = quoteHref.startsWith("/") && quoteHref !== "#quote" ? quoteHref : "/quote";
   const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -23,7 +25,8 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    setIsMobileMenuOpen(false);
+    const frame = window.requestAnimationFrame(() => setIsMobileMenuOpen(false));
+    return () => window.cancelAnimationFrame(frame);
   }, [pathname]);
 
   return (
@@ -36,10 +39,10 @@ export default function Navbar() {
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
-          <Logo />
+          <Logo logoUrl={logoUrl} companyName={companyName} />
 
           <nav className="hidden lg:flex items-center gap-1" aria-label="Main navigation">
-            {NAV_LINKS.map((link) => {
+            {navLinks.map((link) => {
               const isActive = pathname === link.href;
               return (
                 <Link
@@ -62,10 +65,10 @@ export default function Navbar() {
 
           <div className="hidden lg:block">
             <Link
-              href="/quote"
+              href={safeQuoteHref}
               className="inline-flex items-center px-5 py-2.5 rounded-xl bg-gold hover:bg-gold-dark text-white text-sm font-semibold shadow-md shadow-gold/25 hover:shadow-lg hover:shadow-gold/30 transition-all duration-300 hover:-translate-y-0.5"
             >
-              Get a Quote
+              {quoteLabel}
             </Link>
           </div>
 
@@ -83,8 +86,12 @@ export default function Navbar() {
       <MobileMenu
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
-        navLinks={NAV_LINKS}
+        navLinks={navLinks}
         pathname={pathname}
+        quoteLabel={quoteLabel}
+        quoteHref={safeQuoteHref}
+        phone1={phone1}
+        phone2={phone2}
       />
     </header>
   );

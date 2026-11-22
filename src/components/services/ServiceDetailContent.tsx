@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { IMAGE_SLOT_BY_ID } from "@/lib/image-slots";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
@@ -18,9 +19,10 @@ const NAVBAR_MOBILE_HEIGHT = 64;
 const PILL_BAR_HEIGHT = 64;
 
 export default function ServiceDetailContent({ category, categories, quoteHref, quoteService }: Props) {
+  const visibleServices = category.services.filter((service) => service.isVisible !== false);
   const pillBarRef = useRef<HTMLElement>(null);
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
-  const [activeId, setActiveId] = useState(category.services[0]?.id ?? "");
+  const [activeId, setActiveId] = useState(visibleServices[0]?.id ?? "");
   const [highlightedId, setHighlightedId] = useState("");
   const [hasOverflow, setHasOverflow] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -60,7 +62,7 @@ export default function ServiceDetailContent({ category, categories, quoteHref, 
       }
     );
 
-    category.services.forEach((service) => {
+    visibleServices.forEach((service) => {
       const card = cardRefs.current.get(service.id);
       if (card) observer.observe(card);
     });
@@ -70,7 +72,7 @@ export default function ServiceDetailContent({ category, categories, quoteHref, 
       window.removeEventListener("scroll", updateStickyBar);
       window.removeEventListener("resize", updateStickyBar);
     };
-  }, [category.services]);
+  }, [visibleServices]);
 
   const handlePillClick = (id: string) => {
     setActiveId(id);
@@ -86,7 +88,7 @@ export default function ServiceDetailContent({ category, categories, quoteHref, 
         <div className="mx-auto max-w-7xl">
           <nav aria-label="Breadcrumb" className="mb-4 text-sm text-jungle-dark/65">
             <ol className="flex flex-wrap items-center gap-2">
-              <li><Link href="/services" className="transition-colors hover:text-jungle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jungle">Services</Link></li>
+              <li><Link href="/services" className="transition-colors hover:text-jungle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jungle">{category.breadcrumbLabel ?? "Services"}</Link></li>
               <li aria-hidden="true">/</li>
               <li aria-current="page" className="text-jungle-dark">{category.title}</li>
             </ol>
@@ -107,7 +109,7 @@ export default function ServiceDetailContent({ category, categories, quoteHref, 
       >
         <div className="relative mx-auto h-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="service-pill-scroll flex h-full items-center gap-2 overflow-x-auto whitespace-nowrap pr-8">
-            {category.services.map((service) => {
+            {visibleServices.map((service) => {
               const active = activeId === service.id;
               return (
                 <a
@@ -130,7 +132,7 @@ export default function ServiceDetailContent({ category, categories, quoteHref, 
       <main className="bg-white px-4 pb-20 pt-8 sm:px-6 lg:px-8 lg:pt-10">
         <div className="mx-auto max-w-7xl">
           <section aria-label={`${category.title} services`} className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-            {category.services.map((service) => (
+            {visibleServices.map((service) => (
               <article
                 key={service.id}
                 id={service.id}
@@ -144,11 +146,14 @@ export default function ServiceDetailContent({ category, categories, quoteHref, 
                   {service.image ? (
                     <Image
                       src={service.image}
-                      alt={`${service.name} service`}
-                      fill
+                      alt={service.imageAlt ?? category.cardImageAlt ?? (category.cardImageAltTemplate ?? "{service} service").replace("{service}", service.name)}
+                      width={800}
+                      height={600}
                       loading="lazy"
                       sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 33vw"
-                      className="object-cover transition-transform duration-500 hover:scale-105"
+                      placeholder="blur"
+                      blurDataURL={IMAGE_SLOT_BY_ID[service.image.includes("home-office-moves") ? "home-office-moves" : service.image.includes("home-cleaning") ? "home-cleaning" : service.image.includes("home-home-relocation") ? "home-home-relocation" : service.image.includes("svc-") ? "svc-specialized" : "home-goods-transport"]?.blurDataURL}
+                      className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center bg-jungle-dark px-6 text-center">
@@ -167,7 +172,7 @@ export default function ServiceDetailContent({ category, categories, quoteHref, 
                     href={`${quoteHref}&category=${encodeURIComponent(category.slug)}&subservice=${encodeURIComponent(service.name)}`}
                     className="mt-auto inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gold px-6 py-3 font-bold text-jungle-dark transition-colors hover:bg-gold-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jungle focus-visible:ring-offset-2"
                   >
-                    Get a Quote <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                    {category.cardQuoteLabel ?? "Get a Quote"} <ArrowRight aria-hidden="true" className="h-4 w-4" />
                   </Link>
                 </div>
               </article>
@@ -177,22 +182,22 @@ export default function ServiceDetailContent({ category, categories, quoteHref, 
           <section aria-labelledby="service-cta-title" className="mt-16 rounded-2xl border border-jungle/25 bg-jungle-dark px-6 py-10 text-white sm:mt-20 sm:px-10 sm:py-12">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 id="service-cta-title" className="text-2xl font-bold text-white sm:text-3xl">Not sure which service you need?</h2>
-                <p className="mt-3 text-white/75">Tell us what you have in mind and we&apos;ll help you find the right fit.</p>
+                <h2 id="service-cta-title" className="text-2xl font-bold text-white sm:text-3xl">{category.bottomCtaHeading ?? "Not sure which service you need?"}</h2>
+                <p className="mt-3 text-white/75">{category.bottomCtaBody ?? "Tell us what you have in mind and we'll help you find the right fit."}</p>
               </div>
               <div className="flex shrink-0 flex-col gap-3 sm:flex-row">
-                <Link href={`/quote?service=${encodeURIComponent(quoteService)}&category=${encodeURIComponent(category.slug)}`} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-gold px-6 py-3 font-bold text-jungle-dark transition-colors hover:bg-gold-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-jungle-dark">
-                  Get a Quote <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                <Link href={category.bottomCtaQuoteHref ?? `/quote?service=${encodeURIComponent(quoteService)}&category=${encodeURIComponent(category.slug)}`} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-gold px-6 py-3 font-bold text-jungle-dark transition-colors hover:bg-gold-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-jungle-dark">
+                  {category.bottomCtaQuoteLabel ?? "Get a Quote"} <ArrowRight aria-hidden="true" className="h-4 w-4" />
                 </Link>
-                <Link href="/services" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white px-6 py-3 font-semibold text-white transition-colors hover:bg-white hover:text-jungle-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-jungle-dark">
-                  All Services
+                <Link href={category.bottomCtaServicesHref ?? "/services"} className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white px-6 py-3 font-semibold text-white transition-colors hover:bg-white hover:text-jungle-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-jungle-dark">
+                  {category.bottomCtaServicesLabel ?? "All Services"}
                 </Link>
               </div>
             </div>
           </section>
 
           <nav aria-label="Other service categories" className="mt-14 border-t border-jungle/20 pt-8 sm:mt-16">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-jungle-dark/60">Other categories</h2>
+            <h2 className="text-sm font-semibold text-jungle-dark/60">Other categories</h2>
             <ul className="mt-5 flex flex-wrap gap-3">
               {categories.filter((other) => other.slug !== category.slug).map((other) => (
                 <li key={other.slug}>

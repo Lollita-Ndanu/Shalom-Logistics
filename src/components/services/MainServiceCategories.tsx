@@ -1,8 +1,13 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { SERVICE_CATEGORIES, type ServiceCategory } from "@/lib/services-data";
 import ScopeDistanceMedia from "@/components/services/ScopeDistanceMedia";
+import HomeReveal from "@/components/home/HomeReveal";
+import { motion, useReducedMotion } from "framer-motion";
+import { IMAGE_SLOT_BY_ID } from "@/lib/image-slots";
 
 const scopeCategory = SERVICE_CATEGORIES.find(
   (category) => category.slug === "scope-and-distance"
@@ -25,16 +30,20 @@ function CategoryCard({ category }: { category: ServiceCategory }) {
       id={category.anchorId}
       className="group isolate flex h-full min-h-[560px] flex-col overflow-hidden border border-neutral-800 bg-neutral-900 transition-transform duration-300 hover:-translate-y-1 scroll-mt-24"
     >
-      <div className="relative aspect-[16/9] w-full shrink-0 sm:aspect-[2/1]">
+      <div className="relative aspect-[16/10] w-full shrink-0">
         <div className="absolute inset-0 isolate overflow-hidden">
           <Image
             src={category.image}
             alt={category.imageAlt}
-            fill
+            width={1000}
+            height={625}
             loading="lazy"
             sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 50vw"
-            className="origin-center transform-gpu object-cover transition-transform duration-700 ease-out will-change-transform [backface-visibility:hidden] [transform:translateZ(0)] group-hover:scale-105"
+            placeholder="blur"
+            blurDataURL={IMAGE_SLOT_BY_ID[`svc-${category.slug === "residential-moving" ? "residential" : category.slug === "commercial-moving" ? "commercial" : category.slug === "scope-and-distance" ? "scope" : category.slug === "specialized-logistics" ? "specialized" : "cleaning"}`]?.blurDataURL}
+            className="absolute inset-0 h-full w-full origin-center transform-gpu object-cover transition-transform duration-700 ease-out will-change-transform [backface-visibility:hidden] [transform:translateZ(0)] group-hover:scale-105"
           />
+          <span aria-hidden="true" className="pointer-events-none absolute inset-0 border border-[color-mix(in_srgb,var(--ink)_8%,transparent)]" />
         </div>
         <div
           aria-hidden="true"
@@ -83,15 +92,16 @@ function ScopeFeatureCard({ category }: { category: ServiceCategory }) {
         </p>
 
         <ul className="mt-7 space-y-4" aria-label="Scope and distance services">
-          {category.subServices.map((service) => (
-            <li key={service} className="flex items-start gap-3 text-white/85">
+          {category.subServices.filter((service) => typeof service === "string" || service.isVisible !== false).map((service) => {
+            const label = typeof service === "string" ? service : service.name;
+            return <li key={label} className="flex items-start gap-3 text-white/85">
               <Check
                 aria-hidden="true"
                 className="mt-0.5 h-5 w-5 shrink-0 text-jungle"
               />
-              <span>{service}</span>
+              <span>{label}</span>
             </li>
-          ))}
+          })}
         </ul>
 
         <div className="mt-auto pt-8">
@@ -102,11 +112,13 @@ function ScopeFeatureCard({ category }: { category: ServiceCategory }) {
   );
 }
 
-export default function MainServiceCategories() {
-  if (!scopeCategory) return null;
+export default function MainServiceCategories({ categories = SERVICE_CATEGORIES, content = {} }: { categories?: readonly ServiceCategory[]; content?: { heading?: string; intro?: string } }) {
+  const reduceMotion = useReducedMotion() === true;
+  const scoped = categories.find((category) => category.slug === "scope-and-distance") ?? scopeCategory;
+  if (!scoped) return null;
 
-  const regularCategories = SERVICE_CATEGORIES.filter(
-    (category) => category.slug !== scopeCategory.slug
+  const regularCategories = categories.filter(
+    (category) => category.slug !== scoped.slug
   );
 
   return (
@@ -115,24 +127,32 @@ export default function MainServiceCategories() {
       className="relative min-h-full overflow-visible bg-black"
     >
       <div className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
-        <div className="mx-auto max-w-3xl text-center">
+        <HomeReveal className="mx-auto max-w-3xl text-center" effect="fade">
           <h2
             id="service-categories-heading"
             className="text-4xl font-bold leading-tight text-white sm:text-5xl"
           >
-            Our Service Categories
+            {content.heading ?? "Our Service Categories"}
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-white/65 sm:text-xl">
-            Everything you need to move, ship and clean, in one place.
+            {content.intro ?? "Everything you need to move, ship and clean, in one place."}
           </p>
-        </div>
+        </HomeReveal>
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2">
-          <CategoryCard category={regularCategories[0]} />
-          <CategoryCard category={regularCategories[1]} />
-          <ScopeFeatureCard category={scopeCategory} />
-          <CategoryCard category={regularCategories[2]} />
-          <CategoryCard category={regularCategories[3]} />
+          {regularCategories.slice(0, 2).map((category, index) => (
+            <motion.div key={category.slug} initial={reduceMotion ? false : { opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} transition={{ duration: reduceMotion ? 0 : 0.48, delay: reduceMotion ? 0 : index * 0.08 }}>
+              <CategoryCard category={category} />
+            </motion.div>
+          ))}
+          <motion.div className="sm:col-span-2" initial={reduceMotion ? false : { opacity: 0, scale: 0.985 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true, amount: 0.1 }} transition={{ duration: reduceMotion ? 0 : 0.55, ease: "easeOut" }}>
+            <ScopeFeatureCard category={scoped} />
+          </motion.div>
+          {regularCategories.slice(2).map((category, index) => (
+            <motion.div key={category.slug} initial={reduceMotion ? false : { opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} transition={{ duration: reduceMotion ? 0 : 0.48, delay: reduceMotion ? 0 : index * 0.08 }}>
+              <CategoryCard category={category} />
+            </motion.div>
+          ))}
         </div>
       </div>
 

@@ -49,11 +49,9 @@ const ROW_AUTOPLAY_DELAY = 4000;
 function DuotoneRevealPhoto({
   src,
   alt,
-  placeholder,
 }: {
   src: string;
   alt: string;
-  placeholder: string;
 }) {
   const [isHovering, setIsHovering] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -102,9 +100,6 @@ function DuotoneRevealPhoto({
           transition={{ duration: reduceMotion ? 0 : 0.5, ease: "easeInOut" }}
           className="pointer-events-none absolute inset-0 bg-jungle-dark/90 mix-blend-multiply"
         />
-        <span className="absolute bottom-4 left-4 z-[1] bg-jungle-dark/80 px-3 py-2 text-xs font-medium tracking-wide text-white/85">
-          {placeholder}
-        </span>
       </button>
       <figcaption className="sr-only">
         Photo color changes with hover, focus, or tap.
@@ -153,14 +148,14 @@ function EditorialRows({
               onInteractionChange(true);
             }}
             aria-expanded={isActive}
-            className="group grid w-full grid-cols-[48px_minmax(0,1fr)] gap-x-4 border-b border-jungle-dark/70 py-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold sm:grid-cols-[64px_minmax(0,1fr)] sm:gap-x-6 sm:py-6"
+            className="group grid w-full grid-cols-[48px_minmax(0,1fr)] gap-x-4 border-b border-jungle-dark/70 py-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold sm:grid-cols-[64px_minmax(0,1fr)] sm:gap-x-6 sm:py-6 md:py-[clamp(20px,2.4vw,32px)]"
           >
-            <span className="pt-1 text-sm font-medium tabular-nums text-gold/80 sm:text-base">
+            <span className="pt-1 text-sm font-medium tabular-nums text-gold/80 sm:text-base md:text-sm">
               {String(index + 1).padStart(2, "0")}
             </span>
             <span className="block min-w-0">
               <span
-                className={`block text-[clamp(32px,4vw,56px)] font-semibold leading-[1.05] tracking-tight transition-colors ${
+                className={`block text-[clamp(32px,4vw,56px)] font-semibold leading-[1.05] tracking-tight transition-colors md:text-[clamp(22px,2vw,30px)] md:leading-[1.2] ${
                   isActive ? "text-white" : "text-white/70 group-hover:text-white"
                 }`}
               >
@@ -176,7 +171,7 @@ function EditorialRows({
                     transition={{ duration: 0.24, ease: "easeOut" }}
                     className="block overflow-hidden"
                   >
-                    <span className="mt-2 block max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg">
+                    <span className="mt-2 block max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg md:text-[clamp(16px,1.2vw,18px)]">
                       {item.description}
                     </span>
                   </motion.span>
@@ -190,31 +185,39 @@ function EditorialRows({
   );
 }
 
-export default function PurposeSlideshow() {
+export default function PurposeSlideshow({ content = {} }: { content?: { heading?: string; intro?: string; slides?: { title: string; heading: string; body: string; image: string; imageAlt: string; isVisible?: boolean }[]; valuesHeading?: string; values?: (RowItem & { isVisible?: boolean })[]; goalsHeading?: string; goals?: (RowItem & { isVisible?: boolean })[] } }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeRow, setActiveRow] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isRowInteracting, setIsRowInteracting] = useState(false);
   const prefersReducedMotion = useReducedMotion();
   const shouldReduceMotion = prefersReducedMotion === true;
-  const activeSlide = SLIDES[activeIndex];
+  const slides = content.slides?.length
+    ? [
+        ...content.slides.filter((slide) => slide.isVisible !== false).map((slide) => slide.title),
+        ...(content.values ? ["Values"] : []),
+        ...(content.goals ? ["Goals"] : []),
+      ] as (typeof SLIDES[number])[]
+    : SLIDES;
+  const activeSlide = slides[Math.min(activeIndex, Math.max(0, slides.length - 1))] ?? SLIDES[0];
   const isRowSlide = activeSlide === "Values" || activeSlide === "Goals";
-  const activeRows = activeSlide === "Values" ? VALUES : GOALS;
+  const cmsRows = activeSlide === "Values" ? content.values : content.goals;
+  const activeRows = cmsRows ? cmsRows.filter((row) => row.isVisible !== false) : (activeSlide === "Values" ? VALUES : GOALS);
 
   useEffect(() => {
     if (isPaused || shouldReduceMotion) return;
 
     const timer = window.setInterval(() => {
-      setActiveIndex((index) => (index + 1) % SLIDES.length);
+      setActiveIndex((index) => (index + 1) % Math.max(1, slides.length));
       setActiveRow(0);
       setIsRowInteracting(false);
     }, AUTOPLAY_DELAY);
 
     return () => window.clearInterval(timer);
-  }, [activeIndex, isPaused, shouldReduceMotion]);
+  }, [activeIndex, isPaused, shouldReduceMotion, slides.length]);
 
   useEffect(() => {
-    if (!isRowSlide || isPaused || isRowInteracting || shouldReduceMotion) return;
+    if (!isRowSlide || activeRows.length === 0 || isPaused || isRowInteracting || shouldReduceMotion) return;
 
     const timer = window.setInterval(() => {
       setActiveRow((index) => (index + 1) % activeRows.length);
@@ -232,12 +235,12 @@ export default function PurposeSlideshow() {
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     let nextIndex: number | undefined;
 
-    if (event.key === "ArrowRight") nextIndex = (activeIndex + 1) % SLIDES.length;
+    if (event.key === "ArrowRight") nextIndex = (activeIndex + 1) % slides.length;
     if (event.key === "ArrowLeft") {
-      nextIndex = (activeIndex - 1 + SLIDES.length) % SLIDES.length;
+      nextIndex = (activeIndex - 1 + slides.length) % slides.length;
     }
     if (event.key === "Home") nextIndex = 0;
-    if (event.key === "End") nextIndex = SLIDES.length - 1;
+    if (event.key === "End") nextIndex = slides.length - 1;
 
     if (nextIndex !== undefined) {
       event.preventDefault();
@@ -264,24 +267,34 @@ export default function PurposeSlideshow() {
       }}
     >
       <div className="relative mx-auto max-w-7xl">
-        <div className="max-w-3xl">
+        <motion.div
+          className="max-w-3xl"
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 14 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.45, ease: "easeOut" }}
+        >
           <h2
             id="purpose-heading"
             className="text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl"
           >
-            Purpose in every move.
+            {content.heading ?? "Purpose in every move."}
           </h2>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-white/70">
-            The principles behind how we care, plan, and show up for every move.
+            {content.intro ?? "The principles behind how we care, plan, and show up for every move."}
           </p>
-        </div>
+        </motion.div>
 
-        <div
+        <motion.div
           role="tablist"
           aria-label="Our purpose"
           className="mt-10 flex max-w-full gap-7 overflow-x-auto sm:mt-14 sm:gap-10"
+          initial={shouldReduceMotion ? false : { opacity: 0, x: -12 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.4, delay: shouldReduceMotion ? 0 : 0.08, ease: "easeOut" }}
         >
-          {SLIDES.map((slide, index) => (
+          {slides.map((slide, index) => (
             <button
               key={slide}
               id={`purpose-tab-${index}`}
@@ -301,7 +314,7 @@ export default function PurposeSlideshow() {
               {slide}
             </button>
           ))}
-        </div>
+        </motion.div>
 
         <div
           id="purpose-slide-panel"
@@ -310,7 +323,7 @@ export default function PurposeSlideshow() {
           className="mt-9 grid min-h-[760px] grid-cols-1 sm:mt-12 sm:min-h-[900px] lg:min-h-[600px]"
         >
           <AnimatePresence initial={false}>
-            {SLIDES.map((slide, index) => {
+          {slides.map((slide, index) => {
               const isActive = activeIndex === index;
 
               return (
@@ -334,18 +347,15 @@ export default function PurposeSlideshow() {
                           transition={{ duration: shouldReduceMotion ? 0 : 0.4, delay: isActive ? 0.05 : 0 }}
                           className="relative z-10 pt-12 sm:pt-16"
                         >
-                          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-gold">
-                            {slide}
-                          </p>
-                          <h3 className="mt-4 max-w-2xl text-[clamp(40px,5vw,64px)] font-semibold leading-[1.08] tracking-tight text-white">
-                            {slide === "Mission"
+                           <h3 className="mt-4 max-w-2xl text-[clamp(40px,5vw,64px)] font-semibold leading-[1.08] tracking-tight text-white">
+                          {content.slides?.find((item) => item.title === slide)?.heading ?? (slide === "Mission"
                               ? "Make moving simpler. Make transitions reassuring."
-                              : "Be a trusted partner wherever the next move leads."}
+                              : "Be a trusted partner wherever the next move leads.")}
                           </h3>
                           <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/70">
-                            {slide === "Mission"
+                          {content.slides?.find((item) => item.title === slide)?.body ?? (slide === "Mission"
                               ? "We bring thoughtful planning, careful handling, and dependable support to moving and related services."
-                              : "We aim to serve people and businesses throughout Kenya with care that feels personal at every step."}
+                              : "We aim to serve people and businesses throughout Kenya with care that feels personal at every step.")}
                           </p>
                         </motion.div>
                       </div>
@@ -357,35 +367,28 @@ export default function PurposeSlideshow() {
                         className="relative"
                       >
                       <DuotoneRevealPhoto
-                        src={
+                        src={content.slides?.find((item) => item.title === slide)?.image ?? (
                           slide === "Mission"
                             ? "/images/IMG_20251114_133226.jpg"
-                            : "/images/IMG_20251204_115746.jpg"
-                        }
-                        alt={
+                            : "/images/IMG_20251204_115746.jpg")}
+                        alt={content.slides?.find((item) => item.title === slide)?.imageAlt ?? (
                           slide === "Mission"
                             ? "Shalom Logistics moving service photograph for the mission slide"
-                            : "Shalom Logistics moving and logistics photograph for the vision slide"
-                        }
-                          placeholder={
-                            slide === "Mission"
-                              ? "Placeholder — replace with Shalom crew photo"
-                              : "Placeholder — replace with Shalom truck photo"
-                          }
+                            : "Shalom Logistics moving and logistics photograph for the vision slide")}
                         />
                       </motion.div>
                     </div>
                   ) : null}
 
                   {slide === "Values" ? (
-                    <div className="grid gap-10 lg:grid-cols-[0.65fr_1.35fr] lg:gap-16">
+                    <div className="grid w-full items-center gap-10 lg:grid-cols-[0.65fr_1.35fr] lg:gap-16">
                       <div>
-                        <h3 className="mt-4 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
-                          What we stand for.
+                        <h3 className="mt-4 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl md:text-[clamp(32px,3.4vw,48px)]">
+                          {content.valuesHeading ?? "What we stand for."}
                         </h3>
                       </div>
                       <EditorialRows
-                        items={VALUES}
+                        items={activeRows}
                         activeRow={activeRow}
                         setActiveRow={setActiveRow}
                         onInteractionChange={setIsRowInteracting}
@@ -394,14 +397,14 @@ export default function PurposeSlideshow() {
                   ) : null}
 
                   {slide === "Goals" ? (
-                    <div className="grid gap-10 lg:grid-cols-[0.65fr_1.35fr] lg:gap-16">
+                    <div className="grid w-full items-center gap-10 lg:grid-cols-[0.65fr_1.35fr] lg:gap-16">
                       <div>
-                        <h3 className="mt-4 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
-                          Better moves, made thoughtfully.
+                        <h3 className="mt-4 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl md:text-[clamp(32px,3.4vw,48px)]">
+                          {content.goalsHeading ?? "Better moves, made thoughtfully."}
                         </h3>
                       </div>
                       <EditorialRows
-                        items={GOALS}
+                        items={activeRows}
                         activeRow={activeRow}
                         setActiveRow={setActiveRow}
                         onInteractionChange={setIsRowInteracting}

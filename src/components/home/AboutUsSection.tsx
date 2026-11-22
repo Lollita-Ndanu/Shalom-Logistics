@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import HomeReveal from "@/components/home/HomeReveal";
 
 const COLUMNS = [
   {
@@ -27,11 +28,11 @@ const COLUMNS = [
 
 const BASELINE_DURATION = 120;
 
-export default function AboutUsSection() {
+export default function AboutUsSection({ content = {} }: { content?: { heading?: string; lead?: string; body?: string; aboutLabel?: string; aboutHref?: string; contactLabel?: string; contactHref?: string } }) {
   const [speed, setSpeed] = useState(0);
   const speedRef = useRef(0);
   const lastScrollY = useRef(0);
-  const lastTime = useRef(performance.now());
+  const lastTime = useRef(0);
   const rafRef = useRef<number>(0);
 
   const handleScroll = useCallback(() => {
@@ -82,8 +83,8 @@ export default function AboutUsSection() {
   const duration = BASELINE_DURATION / clampedSpeed;
 
   return (
-    <section className="relative bg-black">
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-24 pb-24 lg:pt-32 lg:pb-32">
+    <section className="relative bg-white">
+        <div className="relative mx-auto max-w-7xl px-4 py-[clamp(40px,5vw,72px)] sm:px-6 lg:px-8">
         <style>{`
           @keyframes about-scroll-down {
             0% { transform: translateY(0); }
@@ -99,45 +100,47 @@ export default function AboutUsSection() {
           }
         `}</style>
 
-        <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white text-center leading-tight max-w-4xl mx-auto mb-16 sm:mb-24">
-          Kenya&apos;s most trusted moving solution
+        <HomeReveal effect="slide">
+        <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[var(--ink)] text-center leading-tight max-w-4xl mx-auto mb-10">
+          {content.heading ?? "Kenya's most trusted moving solution"}
         </h2>
+        </HomeReveal>
 
-        <div className="relative rounded-3xl bg-neutral-900 p-6 sm:p-10 lg:p-16 overflow-hidden">
+        <div className="relative rounded-3xl bg-[var(--ink)] p-6 sm:p-10 lg:p-16 overflow-hidden">
           {/* Left column — drives the container height */}
-          <div className="lg:max-w-[calc(50%-2rem)]">
+          <HomeReveal className="lg:max-w-[calc(50%-2rem)]" effect="fade" delay={0.08}>
             <p className="text-2xl sm:text-3xl font-semibold text-white leading-snug">
-              Moving shouldn&apos;t be a hassle. We specialize in turning
+              {content.lead ?? <>Moving shouldn&apos;t be a hassle. We specialize in turning
               complex, stressful relocations across Kenya into smooth, blissful
-              transitions for families and businesses alike.
+              transitions for families and businesses alike.</>}
             </p>
-            <p className="mt-6 text-gray-400 leading-relaxed text-lg">
-              Whether you are shifting to a new apartment or relocating an
+            <p className="mt-6 text-white/70 leading-relaxed text-lg">
+              {content.body ?? <>Whether you are shifting to a new apartment or relocating an
               entire corporate office, our highly skilled crews arrive on time
               with the right equipment. We use premium packing materials to
               protect your valuables, ensuring that every transition is smooth,
               safe, and stress-free. As our promise goes: &ldquo;We settle you
-              in.&rdquo;
+              in.&rdquo;</>}
             </p>
 
             <div className="mt-10 flex flex-wrap gap-4">
               <Link
-                href="/about"
+                href={content.aboutHref ?? "/about"}
                 className="inline-flex items-center justify-center rounded-full bg-gold hover:bg-gold-light px-8 py-3 text-jungle-dark text-base font-semibold transition-colors duration-200"
               >
-                About Us
+                {content.aboutLabel ?? "About Us"}
               </Link>
               <Link
-                href="/contact"
+                href={content.contactHref ?? "/gallery"}
                 className="inline-flex items-center justify-center rounded-full border-2 border-white/30 hover:border-gold hover:text-gold px-8 py-3 text-white text-base font-semibold transition-colors duration-200"
               >
-                Contact Our Team
+                {content.contactLabel ?? "View our gallery"}
               </Link>
             </div>
-          </div>
+          </HomeReveal>
 
           {/* Right column — clipped to container, images fade at top/bottom edges */}
-          <div className="mt-10 lg:mt-0 h-[420px] sm:h-[520px] lg:h-auto lg:absolute lg:top-16 lg:right-16 lg:bottom-16 lg:left-1/2 overflow-hidden [mask-image:linear-gradient(to_bottom,transparent_0%,black_6%,black_94%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,black_6%,black_94%,transparent_100%)]">
+          <div className="mt-10 lg:mt-0 h-[420px] sm:h-[520px] lg:h-auto lg:absolute lg:top-16 lg:right-16 lg:bottom-16 lg:left-1/2 overflow-hidden [mask-image:linear-gradient(to_bottom,transparent_0%,var(--ink)_6%,var(--ink)_94%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,var(--ink)_6%,var(--ink)_94%,transparent_100%)]">
             <div className="grid grid-cols-2 gap-4 sm:gap-6 h-full">
               {COLUMNS.map((col, colIdx) => (
                 <div

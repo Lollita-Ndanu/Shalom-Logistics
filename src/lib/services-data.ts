@@ -12,7 +12,8 @@ export type ServiceCategory = {
   summary: string;
   image: string;
   imageAlt: string;
-  subServices: readonly string[];
+  subServices: readonly (string | { name: string; isVisible?: boolean })[];
+  isVisible?: boolean;
   featureVideo?: string;
   featurePoster?: string;
 };
@@ -24,7 +25,7 @@ export const SERVICE_CATEGORIES: readonly ServiceCategory[] = [
     name: "Residential & Personal Moving",
     summary:
       "Stress-free home and apartment moves across Nairobi, including professional packing, furniture assembly and space organization.",
-    image: "/images/IMG_20251220_105405.jpg",
+    image: "/images/slots/svc-residential.webp",
     imageAlt: "Shalom Logistics crew preparing a household move with a truck.",
     subServices: [
       "House & Apartment Moving",
@@ -39,7 +40,7 @@ export const SERVICE_CATEGORIES: readonly ServiceCategory[] = [
     name: "Commercial & Business Moving",
     summary:
       "Planned office, data center and warehouse relocations with labeled inventory, secure IT handling and minimal downtime.",
-    image: "/images/OFFICE.jpg",
+    image: "/images/slots/svc-commercial.webp",
     imageAlt: "Office furniture and moving equipment prepared for a commercial relocation.",
     subServices: [
       "Office Relocation",
@@ -54,7 +55,7 @@ export const SERVICE_CATEGORIES: readonly ServiceCategory[] = [
     name: "By Scope & Distance",
     summary:
       "From same-day moves within Nairobi to upcountry transit and cross-border logistics across East Africa.",
-    image: "/images/IMG_20251220_105328.jpg",
+    image: "/images/slots/svc-scope.webp",
     imageAlt: "Shalom Logistics moving crew and truck ready for long-distance transit.",
     subServices: [
       "Intra-Nairobi Moving",
@@ -62,7 +63,7 @@ export const SERVICE_CATEGORIES: readonly ServiceCategory[] = [
       "East African Cross-Border Moving",
     ],
     featureVideo: "/videos/scope-distance.mp4",
-    featurePoster: "/images/IMG_20251220_105328.jpg",
+    featurePoster: "/images/slots/svc-scope.webp",
   },
   {
     slug: "specialized-logistics",
@@ -70,7 +71,7 @@ export const SERVICE_CATEGORIES: readonly ServiceCategory[] = [
     name: "Specialized Logistics & Courier",
     summary:
       "Event gear, fine art, pianos, pets, express courier, secure storage and VIP concierge moves, handled with specialist care.",
-    image: "/images/IMG_20251220_105330.jpg",
+    image: "/images/slots/svc-specialized.webp",
     imageAlt: "Shalom Logistics transport vehicle prepared for specialist cargo delivery.",
     subServices: [
       "Event Gear & Production Transport",
@@ -88,7 +89,7 @@ export const SERVICE_CATEGORIES: readonly ServiceCategory[] = [
     name: "Professional Cleaning Services",
     summary:
       "Deep home cleaning, post-construction, event, Airbnb, commercial and industrial cleaning, plus carpet care and pest control.",
-    image: "/images/IMG_20251204_143807.jpg",
+    image: "/images/slots/svc-cleaning.webp",
     imageAlt: "Professional cleaner carrying out detailed window cleaning.",
     subServices: [
       "Home Spring Cleaning",

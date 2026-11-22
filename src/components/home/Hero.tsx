@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import HomeReveal from "@/components/home/HomeReveal";
 
 const VIDEO_SOURCES = [
   "https://shalom-movers-media.s3.eu-north-1.amazonaws.com/videos/bg2.mp4",
@@ -17,7 +18,13 @@ const ROTATING_WORDS = [
   "office setups",
 ];
 
-export default function Hero() {
+export default function Hero({ content = {} }: { content?: { headline?: string; subheadline?: string; rotatingWords?: string[]; primaryBtnLabel?: string; primaryBtnHref?: string; secondaryBtnLabel?: string; secondaryBtnHref?: string; backgroundVideos?: string[]; posterImageUrl?: string } }) {
+  const videoSources = content.backgroundVideos?.length ? content.backgroundVideos : VIDEO_SOURCES;
+  const rotatingWords = content.rotatingWords?.length ? content.rotatingWords : ROTATING_WORDS;
+  const cmsHeadline = content.headline?.trim();
+  const headline = (!cmsHeadline || cmsHeadline === "Seamless Relocations, Handled With Care.")
+    ? "Redefining logistics"
+    : cmsHeadline.replace(/\s+with\s+smart,?\s+reliable\.?$/i, "");
   const [currentIdx, setCurrentIdx] = useState(0);
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const [wordIndex, setWordIndex] = useState(0);
@@ -53,21 +60,21 @@ export default function Hero() {
     video.play().catch(() => {});
 
     const timer = window.setTimeout(() => {
-      setCurrentIdx((prev) => (prev + 1) % VIDEO_SOURCES.length);
+      setCurrentIdx((prev) => (prev + 1) % videoSources.length);
     }, VIDEO_ROTATION_MS);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [currentIdx, isMobile]);
+  }, [currentIdx, isMobile, videoSources.length]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      setWordIndex((prev) => (prev + 1) % ROTATING_WORDS.length);
+      setWordIndex((prev) => (prev + 1) % rotatingWords.length);
     }, 3000);
 
     return () => window.clearInterval(interval);
-  }, []);
+  }, [rotatingWords.length]);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -137,7 +144,7 @@ export default function Hero() {
 
   return (
     <section ref={sectionRef} className="relative h-screen w-full overflow-hidden">
-      {VIDEO_SOURCES.map((src, i) => {
+      {videoSources.map((src, i) => {
         if (i > 0 && isMobile !== false) return null;
 
         return (
@@ -167,10 +174,10 @@ export default function Hero() {
       <div ref={topMistRef} className="mobile-cloud mobile-cloud-top absolute top-16 lg:top-20 left-[-50%] z-10 h-64 w-[200%] pointer-events-none bg-[url('/images/Cloud1.jpg')] bg-bottom bg-repeat-x bg-cover mix-blend-screen animate-mist-pan-reverse [mask-image:linear-gradient(to_bottom,black_40%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_40%,transparent_100%)]" />
 
       <div className="relative z-20 flex flex-col items-center justify-center h-full text-center px-4 max-md:w-full max-md:max-w-full max-md:px-6">
-        <div className="flex justify-center w-full">
+        <HomeReveal className="flex justify-center w-full" effect="fade" duration={0.65}>
           <h1 className="hero-title text-2xl sm:text-4xl lg:text-6xl font-bold text-white leading-tight text-center">
             <span className="block">
-              Redefining logistics
+              {headline}
               <span className="max-md:hidden"> with</span>
             </span>
             <span className="mt-2 inline-grid grid-cols-[max-content_max-content] items-center gap-3 max-md:flex max-md:flex-wrap max-md:justify-center max-md:gap-x-2 max-md:gap-y-0">
@@ -180,41 +187,45 @@ export default function Hero() {
               </span>
               <span className="relative inline-grid max-md:mt-2 max-md:basis-full max-md:justify-center">
                 <span className="invisible col-start-1 row-start-1 whitespace-nowrap px-3 py-1 max-md:px-[10px] max-md:py-[2px]">
-                  transport solutions
+                  {rotatingWords.reduce((longest, word) => word.length > longest.length ? word : longest, "")}
                 </span>
                 <AnimatePresence mode="wait">
                   <motion.span
-                    key={ROTATING_WORDS[wordIndex]}
+                    key={rotatingWords[wordIndex % rotatingWords.length]}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -12 }}
                     transition={{ duration: 0.4, ease: "easeInOut" }}
                     className="col-start-1 row-start-1 inline-block w-fit whitespace-nowrap bg-gold px-3 py-1 text-jungle-dark max-md:justify-self-center max-md:px-[10px] max-md:py-[2px]"
                   >
-                    {ROTATING_WORDS[wordIndex]}
+                    {rotatingWords[wordIndex % rotatingWords.length]}
                   </motion.span>
                 </AnimatePresence>
               </span>
             </span>
           </h1>
-        </div>
+        </HomeReveal>
+        <HomeReveal delay={0.12}>
         <p className="mt-6 text-lg sm:text-xl text-gold font-medium max-w-2xl">
-          &ldquo;We settle you in.&rdquo;
+          &ldquo;{content.subheadline ?? "We settle you in."}&rdquo;
         </p>
+        </HomeReveal>
+        <HomeReveal delay={0.22}>
         <div className="mt-10 flex flex-col sm:flex-row gap-4 max-md:gap-3">
           <Link
-            href="/quote"
+            href={content.primaryBtnHref ?? "/quote"}
             className="inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-gold hover:bg-gold-light text-jungle-dark text-base font-semibold transition-all duration-300 shadow-xl shadow-gold/20 hover:-translate-y-0.5 max-md:h-12 max-sm:w-full max-md:px-6 max-md:py-0"
           >
-            Get a Quote
+            {content.primaryBtnLabel ?? "Get a Quote"}
           </Link>
           <a
-            href="tel:+254751794728"
+            href={content.secondaryBtnHref ?? "tel:+254751794728"}
             className="inline-flex items-center justify-center px-8 py-3.5 rounded-xl border-2 border-white/40 text-white hover:border-gold hover:text-gold text-base font-semibold transition-all duration-300 hover:-translate-y-0.5 max-md:h-12 max-sm:w-full max-md:px-6 max-md:py-0"
           >
-            Call Us
+            {content.secondaryBtnLabel ?? "Call Us"}
           </a>
         </div>
+        </HomeReveal>
       </div>
     </section>
   );

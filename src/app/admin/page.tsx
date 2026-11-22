@@ -1,9 +1,19 @@
+"use server";
+
 import { redirect } from "next/navigation";
 import { requireOwner } from "@/lib/auth/require-owner";
 import { createClient } from "@/lib/supabase/server";
+import AdminDashboard from "@/components/admin/AdminDashboard";
 
 export default async function AdminHomePage() {
   const user = await requireOwner();
+  const supabase = await createClient();
+  const [quotesResult, messagesResult, subscribersResult, sectionsResult] = await Promise.all([
+    supabase.from("quote_requests").select("*").order("created_at", { ascending: false }),
+    supabase.from("contact_messages").select("*").order("created_at", { ascending: false }),
+    supabase.from("subscribers").select("*").order("created_at", { ascending: false }),
+    supabase.from("site_sections").select("section_key,label,is_visible,content,updated_at").order("section_key"),
+  ]);
 
   async function signOut() {
     "use server";
@@ -13,21 +23,10 @@ export default async function AdminHomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white p-8">
-      <div className="max-w-3xl mx-auto flex items-center justify-between border-b border-neutral-800 pb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Owner Dashboard Verified</h1>
-          <p className="text-sm text-neutral-400 mt-1">Signed in as {user.email}</p>
-        </div>
-        <form action={signOut}>
-          <button
-            type="submit"
-            className="rounded-lg border border-neutral-700 px-4 py-2 text-sm hover:bg-neutral-800"
-          >
-            Sign Out
-          </button>
-        </form>
-      </div>
-    </main>
+    <AdminDashboard
+      ownerEmail={user.email ?? "Owner"}
+      initialData={{ quotes: quotesResult.data ?? [], messages: messagesResult.data ?? [], subscribers: subscribersResult.data ?? [], sections: sectionsResult.data ?? [] }}
+      signOut={signOut}
+    />
   );
 }

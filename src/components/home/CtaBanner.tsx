@@ -11,6 +11,7 @@ import {
   useReducedMotion,
   easeOut,
 } from "framer-motion";
+import HomeReveal from "@/components/home/HomeReveal";
 
 interface CtaBannerProps {
   heading?: string;
@@ -28,10 +29,6 @@ export default function CtaBanner({
   subtext = "Let us settle you in. Get a free quote today.",
   primaryLabel = "Get a Quote",
   primaryHref = "/quote",
-  secondaryLabel = "Or call +254 751 794 728",
-  secondaryHref = "tel:+254751794728",
-  secondaryTarget,
-  secondaryRel,
 }: CtaBannerProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
@@ -127,30 +124,22 @@ export default function CtaBanner({
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gold/80 to-transparent pointer-events-none z-10" />
 
       {/* Content */}
-      <div className="text-center relative z-20 translate-y-[calc((min(38.67vw,186.67px)+24px-4rem)/2)] md:translate-y-0">
+      <HomeReveal className="text-center relative z-20 translate-y-[calc((min(38.67vw,186.67px)+24px-4rem)/2)] md:translate-y-0" effect="fade">
         <h2 className="text-3xl sm:text-4xl font-bold text-jungle-dark">
           {heading}
         </h2>
         <p className="mt-4 text-jungle-dark/70 text-lg">
           {subtext}
         </p>
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+        <div className="mt-8 flex items-center justify-center">
           <Link
             href={primaryHref}
-            className="inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-jungle-dark hover:bg-jungle text-white text-base font-semibold transition-all duration-300 shadow-xl shadow-jungle-dark/20 hover:-translate-y-0.5"
+            className="inline-flex min-w-64 items-center justify-center px-12 py-3.5 rounded-xl bg-jungle-dark hover:bg-jungle text-white text-base font-semibold transition-all duration-300 shadow-xl shadow-jungle-dark/20 hover:-translate-y-0.5"
           >
             {primaryLabel}
           </Link>
-          <a
-            href={secondaryHref}
-            target={secondaryTarget}
-            rel={secondaryRel}
-            className="text-jungle-dark hover:text-jungle text-lg font-semibold transition-colors duration-200"
-          >
-            {secondaryLabel}
-          </a>
         </div>
-      </div>
+      </HomeReveal>
     </section>
   );
 }

@@ -6,16 +6,20 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Phone } from "lucide-react";
 import type { NavLink } from "@/types";
-import { BUSINESS_INFO } from "@/lib/constants";
+import { NAV_LINKS } from "@/lib/constants";
 
 interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
   navLinks: NavLink[];
   pathname: string;
+  quoteLabel?: string;
+  quoteHref?: string;
+  phone1?: string;
+  phone2?: string;
 }
 
-export default function MobileMenu({ isOpen, onClose, navLinks, pathname }: MobileMenuProps) {
+export default function MobileMenu({ isOpen, onClose, navLinks = NAV_LINKS, pathname, quoteLabel = "Get a Quote", quoteHref = "/quote", phone1 = "+254 751 794 728", phone2 = "+254 745 980 198" }: MobileMenuProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -127,26 +131,26 @@ export default function MobileMenu({ isOpen, onClose, navLinks, pathname }: Mobi
 
             <div className="shrink-0 space-y-3 border-t border-gray-100 bg-gray-50/50 px-6 py-5 max-md:border-white/[0.12] max-md:bg-transparent max-md:px-4 max-md:pt-5 max-md:pb-5">
               <Link
-                href="/quote"
+                href={quoteHref}
                 onClick={onClose}
                 className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gold px-4 py-3 font-semibold text-white transition-colors hover:bg-gold-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jungle max-md:h-[52px] max-md:min-h-[52px] max-md:border max-md:border-jungle-light max-md:bg-jungle max-md:hover:bg-jungle-light max-md:focus-visible:ring-white"
               >
-                Get a Quote
+                {quoteLabel}
               </Link>
               <div className="flex flex-col gap-2 text-sm text-gray-600 max-md:hidden">
                 <a
-                  href={`tel:${BUSINESS_INFO.phone1}`}
+                  href={`tel:${phone1}`}
                   className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jungle max-md:min-h-12 max-md:text-white max-md:hover:bg-white/[0.06] max-md:focus-visible:ring-white"
                 >
                   <Phone className="w-4 h-4 text-jungle max-md:text-jungle-light" />
-                  {BUSINESS_INFO.phone1}
+                  {phone1}
                 </a>
                 <a
-                  href={`tel:${BUSINESS_INFO.phone2}`}
+                  href={`tel:${phone2}`}
                   className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jungle max-md:min-h-12 max-md:text-white max-md:hover:bg-white/[0.06] max-md:focus-visible:ring-white"
                 >
                   <Phone className="w-4 h-4 text-jungle max-md:text-jungle-light" />
-                  {BUSINESS_INFO.phone2}
+                  {phone2}
                 </a>
               </div>
             </div>

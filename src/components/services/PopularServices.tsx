@@ -2,21 +2,16 @@
 
 import type { MouseEvent } from "react";
 import Link from "next/link";
-import {
-  Building2,
-  House,
-  Route,
-  Sparkles,
-  Truck,
-  type LucideIcon,
-} from "lucide-react";
 import ServicesRail from "@/components/shared/ServicesRail";
+import HomeReveal from "@/components/home/HomeReveal";
+import Image from "next/image";
+import { IMAGE_SLOT_BY_ID } from "@/lib/image-slots";
 
 type PopularService = {
   title: string;
   description: string;
   href: string;
-  icon: LucideIcon;
+  icon: string;
   badge?: string;
 };
 
@@ -26,38 +21,39 @@ const POPULAR_SERVICES: PopularService[] = [
     description:
       "Full-service home and apartment relocation across Nairobi.",
     href: "#residential-moving",
-    icon: House,
+    icon: "residential",
     badge: "Most Requested",
   },
   {
     title: "Office & Commercial Moving",
     description: "Zero-downtime office transitions and IT setup.",
     href: "#commercial-moving",
-    icon: Building2,
+    icon: "office",
   },
   {
     title: "Inter-County / Upcountry Moving",
     description: "Long-distance transit between Kenyan towns.",
     href: "#scope-and-distance",
-    icon: Route,
+    icon: "distance",
   },
   {
     title: "Home Spring Cleaning",
     description:
       "Deep residential cleaning and sanitization prior to move-in.",
     href: "#cleaning-services",
-    icon: Sparkles,
+    icon: "cleaning",
   },
   {
     title: "Event Gear Transport",
     description:
       "Dedicated transit for production, audio, and exhibition setups.",
     href: "#specialized-logistics",
-    icon: Truck,
+    icon: "courier",
   },
 ];
 
-export default function PopularServices() {
+export default function PopularServices({ content = {} }: { content?: { heading?: string; intro?: string; items?: (PopularService & { isVisible?: boolean })[] } }) {
+  const popularServices = (content.items ?? POPULAR_SERVICES).filter((item) => (item as PopularService & { isVisible?: boolean }).isVisible !== false);
   const handleAnchorClick = (
     event: MouseEvent<HTMLAnchorElement>,
     href: string
@@ -81,21 +77,22 @@ export default function PopularServices() {
       aria-labelledby="popular-services-heading"
       className="bg-white py-24"
     >
-      <div className="mx-auto mb-14 max-w-7xl px-4 text-center sm:px-6 lg:px-8">
+      <HomeReveal className="mx-auto mb-14 max-w-7xl px-4 text-center sm:px-6 lg:px-8" effect="slide">
         <h2
           id="popular-services-heading"
           className="text-4xl font-bold text-gray-900 sm:text-5xl"
         >
-          Popular Services
+          {content.heading ?? "Popular Services"}
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-gray-600">
-          Our most requested services, ready to book in minutes.
+          {content.intro ?? "Our most requested services, ready to book in minutes."}
         </p>
-      </div>
+      </HomeReveal>
 
       <ServicesRail>
-        {POPULAR_SERVICES.map((service) => {
-          const Icon = service.icon;
+        {popularServices.map((service, index) => {
+          const title = service.title.toLowerCase();
+          const imageSlot = IMAGE_SLOT_BY_ID[`popular-${title.includes("residential") || title.includes("home") ? "residential" : title.includes("office") || title.includes("commercial") ? "office" : title.includes("clean") ? "cleaning" : title.includes("county") || title.includes("upcountry") || title.includes("distance") ? "distance" : "courier"}`] ?? IMAGE_SLOT_BY_ID[`popular-${["residential", "office", "distance", "cleaning", "courier"][index % 5]}`];
 
           return (
             <Link
@@ -111,9 +108,9 @@ export default function PopularServices() {
                 </span>
               ) : null}
 
-              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white">
-                <Icon className="h-7 w-7 text-jungle" aria-hidden="true" />
-              </span>
+              <div className="relative mx-auto aspect-[4/3] w-full overflow-hidden rounded-[10px] border border-[color-mix(in_srgb,var(--ink)_8%,transparent)]">
+                <Image src={imageSlot.file} alt="" width={600} height={450} sizes="(max-width: 767px) 260px, 320px" placeholder="blur" blurDataURL={imageSlot.blurDataURL} loading="lazy" className="h-full w-full object-cover" />
+              </div>
 
               <h3 className="mt-5 text-lg font-bold leading-6 text-white md:text-xl md:leading-7">
                 {service.title}

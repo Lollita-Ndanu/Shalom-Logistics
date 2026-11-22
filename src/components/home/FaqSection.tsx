@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import HomeReveal from "@/components/home/HomeReveal";
 
 const FAQS = [
   {
@@ -52,12 +53,12 @@ function FaqItem({
   const answerId = `faq-answer-${index}`;
 
   return (
-    <div className="border-b border-gray-800">
+    <div className="border-b border-[color-mix(in_srgb,white_25%,transparent)]">
       <button
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-controls={answerId}
-        className="group flex w-full items-center justify-between gap-6 py-6 text-left text-white transition-colors duration-200 hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-4 focus-visible:ring-offset-black"
+        className="group flex w-full items-center justify-between gap-6 py-6 text-left text-white transition-colors duration-200 hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--ink)]"
       >
         <span className="text-base font-medium leading-relaxed sm:text-lg">
           {question}
@@ -66,8 +67,8 @@ function FaqItem({
           aria-hidden="true"
           className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border text-xl font-light leading-none transition-all duration-300 ${
             isOpen
-              ? "border-gold bg-gold text-black"
-              : "border-gray-600 text-white group-hover:border-gold group-hover:text-gold"
+               ? "border-[color-mix(in_srgb,white_25%,transparent)] bg-[color-mix(in_srgb,white_20%,transparent)] text-white"
+               : "border-[color-mix(in_srgb,white_25%,transparent)] text-white group-hover:border-[color-mix(in_srgb,white_45%,transparent)]"
           }`}
         >
           {isOpen ? "−" : "+"}
@@ -84,7 +85,7 @@ function FaqItem({
             transition={{ duration: 0.3, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <div className="pb-6 pr-14 text-base leading-relaxed text-gray-400">
+            <div className="pb-6 pr-14 text-base leading-relaxed text-[color-mix(in_srgb,white_80%,transparent)]">
               {answer}
             </div>
           </motion.div>
@@ -94,39 +95,37 @@ function FaqItem({
   );
 }
 
-export default function FaqSection() {
+export default function FaqSection({ content = {} }: { content?: { heading?: string; intro?: string; items?: { question: string; answer: string; isVisible?: boolean }[] } }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const faqs = (content.items ?? FAQS).filter((item) => (item as { isVisible?: boolean }).isVisible !== false);
 
   const toggle = (index: number) => {
     setOpenIndex(openIndex === index ? null : index);
   };
 
   return (
-    <section className="min-h-full bg-black">
-      <div className="mx-auto flex max-w-7xl flex-col items-start gap-16 px-6 py-24 lg:flex-row">
-        <div className="w-full self-start lg:sticky lg:top-32 lg:w-5/12">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">
-            Need to know
-          </p>
+    <section className="min-h-full bg-black py-[clamp(40px,5vw,72px)]">
+      <div className="mx-auto flex max-w-7xl flex-col items-start gap-10 px-6 lg:flex-row">
+        <HomeReveal className="w-full self-start lg:sticky lg:top-32 lg:w-5/12" effect="slide">
           <h2 className="mt-4 text-4xl font-bold leading-tight text-white sm:text-5xl">
-            Frequently Asked Questions
+            {content.heading ?? "Frequently Asked Questions"}
           </h2>
-          <p className="mt-6 max-w-md text-lg leading-relaxed text-gray-400">
-            Everything you need to know about moving with Shalom. If you still
-            have questions, our team is ready to help.
+          <p className="mt-6 max-w-md text-lg leading-relaxed text-[color-mix(in_srgb,white_80%,transparent)]">
+            {content.intro ?? "Everything you need to know about moving with Shalom. If you still have questions, our team is ready to help."}
           </p>
-        </div>
+        </HomeReveal>
 
         <div className="w-full lg:w-7/12">
-          {FAQS.map((faq, index) => (
+          {faqs.map((faq, index) => (
+            <HomeReveal key={faq.question} delay={(index % 4) * 0.06}>
             <FaqItem
-              key={faq.question}
               index={index}
               question={faq.question}
               answer={faq.answer}
               isOpen={openIndex === index}
               onToggle={() => toggle(index)}
             />
+            </HomeReveal>
           ))}
         </div>
       </div>

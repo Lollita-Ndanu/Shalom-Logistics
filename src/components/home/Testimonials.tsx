@@ -68,55 +68,45 @@ type Testimonial = (typeof TESTIMONIALS)[number];
 
 function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
   return (
-    <div className="rounded-2xl bg-yellow-400 hover:bg-yellow-500 active:bg-yellow-600 transition-colors duration-300 cursor-pointer p-6 sm:p-8 max-md:[&:nth-child(n+4)]:hidden">
+    <div className="h-full min-h-[220px] rounded-[14px] border border-[color-mix(in_srgb,var(--ink)_10%,transparent)] bg-gold p-6 sm:p-8 max-md:[&:nth-child(n+4)]:hidden">
       <div className="flex items-center gap-4">
-        <div className="h-12 w-12 shrink-0 rounded-full bg-neutral-900 text-white flex items-center justify-center text-sm font-semibold">
+        <div className="h-12 w-12 shrink-0 rounded-full bg-[var(--ink)] text-white flex items-center justify-center text-sm font-semibold">
           {initials(testimonial.name)}
         </div>
         <div>
-          <p className="font-semibold text-gray-900">{testimonial.name}</p>
-          <p className="text-sm text-gray-700">{testimonial.location}</p>
+          <p className="font-semibold text-[var(--ink)]">{testimonial.name}</p>
+          <p className="text-sm text-[color-mix(in_srgb,var(--ink)_75%,transparent)]">{testimonial.location}</p>
         </div>
       </div>
-      <p className="mt-4 text-gray-900 leading-relaxed">
+      <p className="mt-4 leading-relaxed text-[var(--ink)]">
         &ldquo;{testimonial.text}&rdquo;
       </p>
     </div>
   );
 }
 
-export default function Testimonials() {
-  return (
-    <section className="relative min-h-full bg-gray-50 py-16 md:py-24">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-14 sm:h-20 lg:h-24">
-        <svg
-          viewBox="0 0 1440 140"
-          preserveAspectRatio="none"
-          className="block h-full w-full"
-          aria-hidden="true"
-        >
-          <path
-            d="M0,80 C240,20 480,140 720,80 C960,20 1200,140 1440,80 L1440,0 L0,0 Z"
-            className="fill-jungle-dark"
-          />
-        </svg>
-      </div>
+type CmsTestimonial = { name: string; location: string; text: string; isVisible?: boolean };
+type CmsStat = { value: string; label: string; detail: string; isVisible?: boolean };
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-24 lg:pt-32">
+export default function Testimonials({ content = {} }: { content?: { heading?: string; intro?: string; stats?: CmsStat[]; items?: CmsTestimonial[] } }) {
+  const testimonials = (content.items ?? TESTIMONIALS).filter((item) => (item as { isVisible?: boolean }).isVisible !== false);
+  const stats = (content.stats ?? STATS).filter((item) => (item as { isVisible?: boolean }).isVisible !== false);
+  return (
+    <section className="relative min-h-full bg-[var(--tint)] py-[clamp(40px,5vw,72px)]">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row gap-12">
           {/* Left column */}
-          <div className="lg:w-5/12">
+          <HomeReveal className="lg:w-5/12" effect="slide">
             <div className="lg:sticky lg:top-32">
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight">
-                What do people have to say about us?
+                {content.heading ?? "What do people have to say about us?"}
               </h2>
               <p className="mt-4 text-lg text-gray-600">
-                Real experiences from customers we&apos;ve helped settle in
-                across Kenya.
+                {content.intro ?? "Real experiences from customers we've helped settle in across Kenya."}
               </p>
 
-              <div className="mt-10 grid grid-cols-3 gap-4 sm:gap-6">
-                {STATS.map((stat) => (
+              <div className="mt-10 grid grid-cols-3 items-stretch gap-4 sm:gap-6">
+                {stats.map((stat) => (
                   <div key={stat.label} className="flex flex-col">
                     <p className="text-2xl sm:text-3xl font-bold text-gray-900">
                       {stat.value}
@@ -129,13 +119,15 @@ export default function Testimonials() {
                 ))}
               </div>
             </div>
-          </div>
+          </HomeReveal>
 
           {/* Right column */}
           <div className="lg:w-7/12">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {TESTIMONIALS.map((testimonial) => (
-                <TestimonialCard key={testimonial.id} testimonial={testimonial} />
+              {testimonials.map((testimonial, index) => (
+                <HomeReveal key={"id" in testimonial ? testimonial.id : `${testimonial.name}-${index}`} delay={(index % 4) * 0.07}>
+                  <TestimonialCard testimonial={testimonial as Testimonial} />
+                </HomeReveal>
               ))}
             </div>
           </div>
@@ -144,3 +136,4 @@ export default function Testimonials() {
     </section>
   );
 }
+import HomeReveal from "@/components/home/HomeReveal";

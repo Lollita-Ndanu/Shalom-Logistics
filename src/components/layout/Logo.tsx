@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
-export default function Logo() {
+export default function Logo({ logoUrl = "/images/SHALOM.png", companyName = "Shalom Logistics" }: { logoUrl?: string; companyName?: string }) {
   return (
     <Link href="/" className="relative flex items-center gap-3 group" aria-label="Shalom Logistics home">
       <motion.div
@@ -14,8 +14,8 @@ export default function Logo() {
         transition={{ type: "spring", stiffness: 400, damping: 17 }}
       >
         <Image
-          src="/images/SHALOM.png"
-          alt="Shalom Logistics"
+          src={logoUrl}
+          alt={companyName}
           width={60}
           height={40}
           className="relative z-10 object-contain"
@@ -27,10 +27,10 @@ export default function Logo() {
       </motion.div>
       <div className="flex flex-col leading-none max-md:hidden">
         <span className="text-lg font-bold tracking-tight text-jungle">
-          SHALOM
+          {companyName.split(" ")[0]}
         </span>
         <span className="text-sm font-medium tracking-[0.2em] uppercase text-gold-dark">
-          Logistics
+          {companyName.split(" ").slice(1).join(" ")}
         </span>
       </div>
     </Link>

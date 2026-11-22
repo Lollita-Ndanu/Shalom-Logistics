@@ -2,6 +2,8 @@ import Footer from "@/components/layout/Footer";
 import NairobiStoryScene from "@/components/about/NairobiStoryScene";
 import PurposeSlideshow from "@/components/about/PurposeSlideshow";
 import RevealOnScroll from "@/components/about/RevealOnScroll";
+import CountUpValue from "@/components/about/CountUpValue";
+import { getSiteSections, visibleItems } from "@/lib/cms/sections";
 
 const CUSTOMER_QUOTES = [
   {
@@ -54,15 +56,21 @@ const CUSTOMER_STATS = [
   },
 ] as const;
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const sections = await getSiteSections(["about_story", "about_trust", "about_purpose"]);
+  const story = (sections.about_story?.content ?? {}) as Record<string, string>;
+  const trust = (sections.about_trust?.content ?? {}) as Record<string, unknown>;
+  const purpose = (sections.about_purpose?.content ?? {}) as Record<string, unknown>;
+  const stats: { value: string; label: string; detail: string; isVisible?: boolean }[] = (trust.stats as { value: string; label: string; detail: string; isVisible?: boolean }[] | undefined) ?? [...CUSTOMER_STATS];
+  const quotes: { quote: string; attribution: string; isVisible?: boolean }[] = (trust.testimonials as { quote: string; attribution: string; isVisible?: boolean }[] | undefined) ?? [...CUSTOMER_QUOTES];
   return (
     <>
       <main>
         {/* 1. Hero and pinned story scene: preserved */}
-        <NairobiStoryScene />
+        {sections.about_story?.isVisible !== false ? <NairobiStoryScene content={story} /> : null}
 
         {/* 2. Customer trust and service stats */}
-        <section
+        {sections.about_trust?.isVisible !== false ? <section
           aria-labelledby="customer-stats-heading"
           className="bg-[color-mix(in_srgb,var(--color-jungle-dark)_8%,white)] px-4 py-16 text-jungle-dark sm:px-6 sm:py-20 lg:px-8 lg:py-24"
         >
@@ -72,27 +80,26 @@ export default function AboutPage() {
                 id="customer-stats-heading"
                 className="text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl"
               >
-                What do people have to say about us?
+              {String(trust.statsHeading ?? "What do people have to say about us?")}
               </h2>
               <p className="mt-4 text-lg leading-relaxed text-jungle-dark/80">
-                Real experiences from customers we&apos;ve helped settle in across
-                Kenya.
+                {String(trust.statsIntro ?? "Real experiences from customers we've helped settle in across Kenya.")}
               </p>
             </RevealOnScroll>
 
             <dl className="mt-12 grid gap-8 border-y border-jungle-dark/20 py-8 sm:grid-cols-3 sm:gap-0 sm:py-10">
-              {CUSTOMER_STATS.map((stat, index) => (
+              {stats.filter((item) => item.isVisible !== false).map((stat, index) => (
                 <RevealOnScroll
                   key={stat.label}
                   className={`px-2 sm:px-7 lg:px-10 ${
                     index > 0 ? "sm:border-l sm:border-jungle-dark/20" : ""
                   }`}
                 >
-                  <dt className="text-sm font-semibold uppercase tracking-[0.12em] text-jungle-dark/75">
+                  <dt className="text-sm font-semibold text-jungle-dark/75">
                     {stat.label}
                   </dt>
                   <dd className="mt-2 text-4xl font-bold tracking-tight text-jungle-dark sm:text-5xl">
-                    {stat.value}
+                    <CountUpValue value={stat.value} />
                   </dd>
                   <p className="mt-3 max-w-sm leading-relaxed text-jungle-dark/80">
                     {stat.detail}
@@ -101,33 +108,34 @@ export default function AboutPage() {
               ))}
             </dl>
           </div>
-        </section>
+        </section> : null}
 
         {/* 3. Purpose in every move */}
-        <PurposeSlideshow />
+        {sections.about_purpose?.isVisible !== false ? <PurposeSlideshow content={{ heading: String(purpose.heading ?? "Purpose in every move."), intro: String(purpose.intro ?? ""), valuesHeading: String(purpose.valuesHeading ?? ""), goalsHeading: String(purpose.goalsHeading ?? ""), slides: visibleItems((purpose.slides as { title: string; heading: string; body: string; image: string; imageAlt: string; isVisible?: boolean }[] | undefined) ?? []), values: visibleItems((purpose.values as { title: string; description: string; isVisible?: boolean }[] | undefined) ?? []), goals: visibleItems((purpose.goals as { title: string; description: string; isVisible?: boolean }[] | undefined) ?? []) }} /> : null}
       </main>
 
       {/* 4. Customer quotes underlay, covered by the shared Footer layer */}
       <div className="relative h-[200dvh]">
         <div className="sticky top-0 z-0 h-dvh overflow-y-auto">
-        <section
+        {sections.about_trust?.isVisible !== false ? <section
           aria-labelledby="customer-words-heading"
           className="min-h-full bg-[color-mix(in_srgb,var(--color-jungle-dark)_8%,white)] px-4 py-20 text-jungle-dark sm:px-6 sm:py-24 lg:px-8 lg:py-28"
         >
           <div className="mx-auto max-w-7xl">
-            <div className="mb-8">
+             <RevealOnScroll className="mb-8" effect="slide">
               <div>
                 <h2 id="customer-words-heading" className="text-3xl font-bold sm:text-4xl">
-                  Words from our customers
+                  {String(trust.testimonialsHeading ?? "Words from our customers")}
                 </h2>
                 <p className="mt-3 text-jungle-dark/80">
-                  Experiences shared by people we&apos;ve helped move.
+                  {String(trust.testimonialsIntro ?? "Experiences shared by people we've helped move.")}
                 </p>
               </div>
-            </div>
-            <div className="grid gap-5 md:grid-cols-3">
-              {CUSTOMER_QUOTES.map((item) => (
-                <figure key={item.attribution} className="h-full border-l-4 border-gold bg-white/70 p-6 sm:p-7">
+             </RevealOnScroll>
+             <div className="grid gap-5 md:grid-cols-3">
+              {quotes.filter((item) => item.isVisible !== false).map((item, index) => (
+                <RevealOnScroll key={item.attribution} delay={(index % 3) * 0.07}>
+                <figure className="h-full border-l-4 border-gold bg-white/70 p-6 sm:p-7">
                     <blockquote className="text-lg leading-relaxed text-jungle-dark/90">
                       “{item.quote}”
                     </blockquote>
@@ -135,10 +143,11 @@ export default function AboutPage() {
                       {item.attribution}
                     </figcaption>
                 </figure>
+                </RevealOnScroll>
               ))}
             </div>
           </div>
-        </section>
+        </section> : null}
         </div>
 
         <div className="sticky top-0 z-20 h-dvh overflow-y-auto">
