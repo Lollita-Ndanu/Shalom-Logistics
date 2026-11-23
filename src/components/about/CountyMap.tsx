@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, MotionValue, useReducedMotion, useTransform, type MotionValue as MotionValueType } from "framer-motion";
-import { KENYA_COUNTIES, KENYA_COUNTY_OUTLINE, NAIROBI_HUB } from "@/lib/kenya-counties";
+import { KENYA_COUNTIES, KENYA_COUNTY_OUTLINE } from "@/lib/kenya-counties";
 import { COUNTY_REVEAL_ORDER, SERVE_ALL, SERVED } from "@/lib/served-counties";
 
 const COUNTY_BY_NAME = new Map(KENYA_COUNTIES.map((county) => [county.name, county]));
@@ -12,6 +12,7 @@ const TOWNS_BY_COUNTY = SERVED.reduce<Record<string, string[]>>((towns, entry) =
 }, {});
 const STATIC_PROGRESS = new MotionValue(1);
 const CREAM = "color-mix(in srgb, var(--color-jungle-dark) 8%, white)";
+const NAIROBI_PULSE = true;
 
 const missingServed = SERVED.map(({ county }) => county).filter((name) => !COUNTY_BY_NAME.has(name));
 if (process.env.NODE_ENV === "development" && missingServed.length > 0) {
@@ -53,7 +54,7 @@ function LegendRow({ row, sequence, complete, progress, active, onActivate }: {
         <span className="mt-[7px] h-2 w-2 shrink-0 bg-gold" aria-hidden="true" />
         <span className="min-w-0">
           <span className={`block text-lg leading-tight text-white transition-opacity ${active ? "opacity-100" : "opacity-90"}`}>{row.town}</span>
-          <span className="mt-1 block text-sm leading-tight text-white/65">{row.county} County</span>
+          {row.town !== row.county ? <span className="mt-1 block text-sm leading-tight text-white/65">{row.county}</span> : null}
         </span>
       </button>
     </motion.li>
@@ -68,13 +69,14 @@ function CountyShape({ county, progress, interactive, active, onActivate }: {
   onActivate: (name: string | null) => void;
 }) {
   const served = SERVE_ALL || Boolean(TOWNS_BY_COUNTY[county.name]);
+  const nairobi = county.name === "Nairobi";
   const sequence = COUNTY_REVEAL_ORDER.indexOf(county.name as (typeof COUNTY_REVEAL_ORDER)[number]);
   const start = sequence < 0 ? 0.72 : 0.72 + (sequence / COUNTY_REVEAL_ORDER.length) * 0.23;
   const end = sequence < 0 ? 0.72 : 0.72 + ((sequence + 1) / COUNTY_REVEAL_ORDER.length) * 0.23;
   const animatedOpacity = useTransform(progress ?? STATIC_PROGRESS, [start, end], sequence < 0 ? [0.28, 0.28] : [0, 0.28]);
-  const fillOpacity = !served ? 0.03 : (!interactive || !progress || SERVE_ALL || sequence < 0) ? 0.28 : active ? 0.5 : animatedOpacity;
-  const strokeOpacity = served ? 0.7 : 0.18;
-  const strokeWidth = served ? 1 : 0.75;
+  const fillOpacity = nairobi ? 1 : !served ? 0.03 : (!interactive || !progress || SERVE_ALL || sequence < 0) ? 0.28 : active ? 0.5 : animatedOpacity;
+  const strokeOpacity = nairobi ? 1 : served ? 0.7 : 0.18;
+  const strokeWidth = nairobi ? 1 : served ? 1 : 0.75;
 
   return (
     <motion.path
@@ -86,7 +88,7 @@ function CountyShape({ county, progress, interactive, active, onActivate }: {
       fillOpacity={fillOpacity}
       stroke={served ? "var(--color-gold)" : CREAM}
       strokeOpacity={strokeOpacity}
-      strokeWidth={active ? 2 : strokeWidth}
+      strokeWidth={active && !nairobi ? 2 : strokeWidth}
       vectorEffect="non-scaling-stroke"
       onMouseEnter={() => served && onActivate(county.name)}
       onMouseLeave={() => onActivate(null)}
@@ -100,11 +102,30 @@ function CountyShape({ county, progress, interactive, active, onActivate }: {
 export default function CountyMap({ progress, interactive = true, heading, body }: CountyMapProps) {
   const reduceMotion = useReducedMotion() === true;
   const [activeCounty, setActiveCounty] = useState<string | null>(null);
+  const [mapScale, setMapScale] = useState(1);
+  const [inView, setInView] = useState(false);
+  const [mobile, setMobile] = useState(false);
+  const svgRef = useRef<SVGSVGElement>(null);
   const legendRows = SERVED;
   const complete = !interactive || !progress || reduceMotion || SERVE_ALL;
   const outlineOpacity = useTransform(progress ?? STATIC_PROGRESS, [0.65, 0.72], [0, 1]);
+  const nairobiGlowProgress = useTransform(progress ?? STATIC_PROGRESS, [0.65, 0.72], [0.65, 0.72]);
   const activeFeature = activeCounty ? COUNTY_BY_NAME.get(activeCounty) : undefined;
   const tooltipTowns = activeCounty ? [...new Set(TOWNS_BY_COUNTY[activeCounty] ?? [])].join(", ") : "";
+  const nairobi = COUNTY_BY_NAME.get("Nairobi");
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const resize = new ResizeObserver(([entry]) => setMapScale(600 / Math.max(1, entry.contentRect.width)));
+    resize.observe(svg);
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), { threshold: 0.01 });
+    observer.observe(svg);
+    const media = window.matchMedia("(max-width: 767px)");
+    const updateMobile = () => setMobile(media.matches);
+    media.addEventListener("change", updateMobile);
+    updateMobile();
+    return () => { resize.disconnect(); observer.disconnect(); media.removeEventListener("change", updateMobile); };
+  }, []);
 
   return (
     <div className="grid w-full min-w-0 grid-cols-1 items-start gap-x-8 gap-y-5 md:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)]">
@@ -129,16 +150,17 @@ export default function CountyMap({ progress, interactive = true, heading, body 
         </motion.p>
       </div>
       <div className="order-3 min-w-0 md:order-none md:col-start-1 md:row-start-2">
-        <h3 className="text-base font-medium text-white/80">Counties we serve</h3>
+        <h3 className="text-base font-medium text-white/80">Counties we&apos;ve served</h3>
         <ul className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3">
           {legendRows.map((row) => <LegendRow key={`${row.town}-${row.county}`} row={row} sequence={COUNTY_REVEAL_ORDER.indexOf(row.county as (typeof COUNTY_REVEAL_ORDER)[number])} complete={complete} progress={progress} active={activeCounty === row.county} onActivate={setActiveCounty} />)}
         </ul>
       </div>
 
-      <div className="order-2 min-w-0 w-full md:order-none md:col-start-2 md:row-span-2 md:row-start-1">
+      <div className="order-2 min-w-0 w-full overflow-visible md:order-none md:col-start-2 md:row-span-2 md:row-start-1">
         <motion.svg
+          ref={svgRef}
           viewBox="0 0 600 700"
-          className="block max-h-[min(68vh,620px)] w-full overflow-hidden"
+          className="block max-h-[min(68vh,620px)] w-full overflow-visible"
           role="group"
           aria-label="Map of Kenya counties served by Shalom Logistics"
           preserveAspectRatio="xMidYMid meet"
@@ -147,11 +169,21 @@ export default function CountyMap({ progress, interactive = true, heading, body 
           viewport={{ once: true, amount: 0.15 }}
           transition={{ duration: reduceMotion ? 0 : 0.45, ease: "easeOut" }}
         >
-          <style>{`.county-shape { transition: fill-opacity 140ms ease-out; } @media (prefers-reduced-motion: reduce) { .county-shape { transition: none; } }`}</style>
+          <defs>
+            <filter id="nairobi-glow" x="-300%" y="-300%" width="700%" height="700%" filterUnits="objectBoundingBox" colorInterpolationFilters="sRGB">
+              <feGaussianBlur in="SourceAlpha" stdDeviation={`${3 * mapScale * (activeCounty === "Nairobi" ? 1.3 : 1)}`} result="blurInner" />
+              <feFlood floodColor="var(--color-gold)" floodOpacity="0.85" result="goldInner" />
+              <feComposite in="goldInner" in2="blurInner" operator="in" result="innerGlow" />
+              <feGaussianBlur in="SourceAlpha" stdDeviation={`${9 * mapScale * (activeCounty === "Nairobi" ? 1.3 : 1)}`} result="blurOuter" />
+              <feFlood floodColor="var(--color-gold)" floodOpacity="0.45" result="goldOuter" />
+              <feComposite in="goldOuter" in2="blurOuter" operator="in" result="outerGlow" />
+              <feMerge><feMergeNode in="outerGlow" /><feMergeNode in="innerGlow" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+          <style>{`.county-shape { transition: fill-opacity 140ms ease-out; } .nairobi-halo { transition: opacity 200ms ease-out; } .nairobi-halo-pulse { animation: nairobi-pulse 4s ease-in-out infinite; } @keyframes nairobi-pulse { 0%,100% { opacity: .55; } 50% { opacity: .9; } } @media (prefers-reduced-motion: reduce) { .county-shape,.nairobi-halo { transition: none; } .nairobi-halo-pulse { animation: none; } }`}</style>
+          {nairobi ? <motion.path d={nairobi.d} aria-hidden="true" pointerEvents="none" fill="var(--color-gold)" fillOpacity={1} stroke="none" filter="url(#nairobi-glow)" className={`nairobi-halo${NAIROBI_PULSE && inView && !reduceMotion && !mobile && interactive && complete ? " nairobi-halo-pulse" : ""}`} style={{ opacity: activeCounty === "Nairobi" ? 1 : complete ? 0.65 : nairobiGlowProgress }} /> : null}
           {KENYA_COUNTIES.map((county) => <CountyShape key={county.id} county={county} progress={progress} interactive={interactive && !reduceMotion} active={activeCounty === county.name} onActivate={setActiveCounty} />)}
           <motion.path d={KENYA_COUNTY_OUTLINE} fill="none" stroke={CREAM} strokeOpacity="0.45" strokeWidth="1.25" vectorEffect="non-scaling-stroke" pointerEvents="none" style={{ opacity: complete ? 1 : outlineOpacity }} />
-          <motion.circle cx={NAIROBI_HUB.x} cy={NAIROBI_HUB.y} r="8" fill="var(--color-gold)" pointerEvents="none" style={{ opacity: complete ? 1 : outlineOpacity }} />
-          <motion.circle cx={NAIROBI_HUB.x} cy={NAIROBI_HUB.y} r="12" fill="none" stroke="var(--color-gold)" strokeOpacity="0.4" strokeWidth="1" vectorEffect="non-scaling-stroke" pointerEvents="none" style={{ opacity: complete ? 1 : outlineOpacity }} />
           {activeFeature ? <g pointerEvents="none"><text x={Math.max(105, Math.min(495, activeFeature.cx))} y={Math.max(30, Math.min(670, activeFeature.cy))} textAnchor="middle" fill={CREAM} stroke="var(--color-jungle-dark)" strokeWidth="5" paintOrder="stroke" strokeLinejoin="round" fontSize="15" fontWeight="600">{tooltipTowns ? `${tooltipTowns} · ${activeCounty} County` : `${activeCounty} County`}</text></g> : null}
         </motion.svg>
       </div>

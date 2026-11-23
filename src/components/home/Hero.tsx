@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
+import { useState, useEffect, useRef, type MouseEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import HomeReveal from "@/components/home/HomeReveal";
 
@@ -32,6 +31,25 @@ export default function Hero({ content = {} }: { content?: { headline?: string; 
   const sectionRef = useRef<HTMLElement>(null);
   const bottomMistRef = useRef<HTMLDivElement>(null);
   const topMistRef = useRef<HTMLDivElement>(null);
+
+  function scrollToQuickQuote(event: MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    const formWrapper = document.getElementById("quick-quote");
+    if (!formWrapper) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    formWrapper.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    let done = false;
+    const focusForm = () => {
+      if (done) return;
+      done = true;
+      window.clearTimeout(fallback);
+      window.removeEventListener("scrollend", focusForm);
+      const firstField = formWrapper.querySelector<HTMLElement>("select, input, button");
+      firstField?.focus({ preventScroll: true });
+    };
+    const fallback = window.setTimeout(focusForm, reduceMotion ? 0 : 700);
+    if (!reduceMotion) window.addEventListener("scrollend", focusForm, { once: true });
+  }
 
   const activeIdx = isMobile === true ? 0 : currentIdx;
 
@@ -212,12 +230,13 @@ export default function Hero({ content = {} }: { content?: { headline?: string; 
         </HomeReveal>
         <HomeReveal delay={0.22}>
         <div className="mt-10 flex flex-col sm:flex-row gap-4 max-md:gap-3">
-          <Link
-            href={content.primaryBtnHref ?? "/quote"}
+          <a
+            href="#quick-quote"
+            onClick={scrollToQuickQuote}
             className="inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-gold hover:bg-gold-light text-jungle-dark text-base font-semibold transition-all duration-300 shadow-xl shadow-gold/20 hover:-translate-y-0.5 max-md:h-12 max-sm:w-full max-md:px-6 max-md:py-0"
           >
-            {content.primaryBtnLabel ?? "Get a Quote"}
-          </Link>
+            Get a Free Quote
+          </a>
           <a
             href={content.secondaryBtnHref ?? "tel:+254751794728"}
             className="inline-flex items-center justify-center px-8 py-3.5 rounded-xl border-2 border-white/40 text-white hover:border-gold hover:text-gold text-base font-semibold transition-all duration-300 hover:-translate-y-0.5 max-md:h-12 max-sm:w-full max-md:px-6 max-md:py-0"

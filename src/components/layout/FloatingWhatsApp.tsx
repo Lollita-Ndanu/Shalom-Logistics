@@ -1,9 +1,9 @@
 import Image from "next/image";
 
-export default function FloatingWhatsApp({ href = "https://wa.me/254751794728" }: { href?: string }) {
+export default function FloatingWhatsApp() {
   return (
     <a
-      href={href}
+      href="https://wa.me/254751794728"
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with Shalom Logistics on WhatsApp"

@@ -43,7 +43,6 @@ export default function HomePopularAreas() {
           <h2 id="home-popular-areas-heading">Popular Areas</h2>
           <p className="pa-intro">Reliable moving, transport, and cleaning support wherever you are headed.</p>
         </div>
-        <p className="pa-hint">Tap a destination to start your quote.</p>
       </header>
       <div className="pa-grid">
         {DESTINATIONS.map((city, index) => <button key={city.slug} type="button" className={`pa-tile${index === 0 ? " pa-tile-large" : ""}${city.slug === "nakuru" ? " pa-tile-wide" : ""}`} style={{ "--tile-order": index } as React.CSSProperties} aria-label={`Get a quote for moving to ${city.name}`} onClick={() => onQuote(city.name)}>

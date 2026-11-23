@@ -52,7 +52,7 @@ export const SERVICE_CATEGORIES: readonly ServiceCategory[] = [
   {
     slug: "scope-and-distance",
     anchorId: "scope-and-distance",
-    name: "By Scope & Distance",
+    name: "Relocation by Scope & Distance",
     summary:
       "From same-day moves within Nairobi to upcountry transit and cross-border logistics across East Africa.",
     image: "/images/slots/svc-scope.webp",

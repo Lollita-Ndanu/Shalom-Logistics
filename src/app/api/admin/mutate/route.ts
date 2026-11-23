@@ -23,12 +23,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid section content.' }, { status: 400 });
     }
 
+    if (payload.sectionKey === 'global_media') {
+      return NextResponse.json({ error: 'This section is not editable.' }, { status: 403 });
+    }
+
+    const safeContent = structuredClone(payload.content) as Record<string, unknown>;
+    if (payload.sectionKey === 'about_story') {
+      const { data: existing } = await supabase.from('site_sections').select('content').eq('section_key', 'about_story').maybeSingle();
+      const existingContent = existing?.content as Record<string, unknown> | undefined;
+      if (existingContent && 'mapLocations' in existingContent) safeContent.mapLocations = existingContent.mapLocations;
+    }
+
+    if (payload.sectionKey === 'gallery_content') {
+      const categories = safeContent.categories;
+      const items = safeContent.items;
+      if (!Array.isArray(categories) || categories.length !== 5 || categories.some((category) => typeof category !== 'string' || !category.trim()) || new Set(categories).size !== 5) {
+        return NextResponse.json({ error: 'Gallery must have five unique, non-empty categories.' }, { status: 400 });
+      }
+      if (!Array.isArray(items) || items.some((entry) => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return true;
+        const item = entry as Record<string, unknown>;
+        const videoType = item.type === 'video' || (item.type == null && typeof item.src === 'string' && /\.(mp4|webm|mov)(?:$|\?)/i.test(item.src));
+        const type = item.type ?? (videoType ? 'video' : 'image');
+        return typeof item.src !== 'string' || !item.src.trim() || typeof item.alt !== 'string' || !item.alt.trim() || typeof item.category !== 'string' || !categories.includes(item.category) || !['image', 'video'].includes(String(type));
+      })) {
+        return NextResponse.json({ error: 'Every gallery item needs media, alt text, one valid category, and a valid media type.' }, { status: 400 });
+      }
+    }
+
     const { data, error } = await supabase
       .from('site_sections')
       .update({
         label: payload.label,
         is_visible: payload.isVisible,
-        content: payload.content,
+        content: safeContent,
         updated_at: new Date().toISOString(),
       })
       .eq('section_key', payload.sectionKey)

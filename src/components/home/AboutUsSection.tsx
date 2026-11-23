@@ -131,10 +131,10 @@ export default function AboutUsSection({ content = {} }: { content?: { heading?:
                 {content.aboutLabel ?? "About Us"}
               </Link>
               <Link
-                href={content.contactHref ?? "/gallery"}
+                href="/gallery"
                 className="inline-flex items-center justify-center rounded-full border-2 border-white/30 hover:border-gold hover:text-gold px-8 py-3 text-white text-base font-semibold transition-colors duration-200"
               >
-                {content.contactLabel ?? "View our gallery"}
+                View our gallery
               </Link>
             </div>
           </HomeReveal>

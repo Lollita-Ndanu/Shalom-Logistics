@@ -31,6 +31,29 @@ export default function ServiceDetailContent({ category, categories, quoteHref, 
   useEffect(() => {
     reduceMotion.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    const requestedService = new URLSearchParams(window.location.search).get("service");
+    const targetService = visibleServices.find((service) => service.name.toLowerCase() === requestedService?.toLowerCase());
+    const revealPillHorizontally = (id: string) => {
+      const bar = pillBarRef.current;
+      const pill = document.getElementById(`service-pill-${id}`);
+      if (!bar || !pill) return;
+      const barRect = bar.getBoundingClientRect();
+      const pillRect = pill.getBoundingClientRect();
+      if (pillRect.left < barRect.left) bar.scrollBy({ left: pillRect.left - barRect.left, behavior: reduceMotion.current ? "auto" : "smooth" });
+      else if (pillRect.right > barRect.right) bar.scrollBy({ left: pillRect.right - barRect.right, behavior: reduceMotion.current ? "auto" : "smooth" });
+    };
+    let targetFrame: number | undefined;
+    if (targetService) {
+      targetFrame = window.requestAnimationFrame(() => {
+        const card = cardRefs.current.get(targetService.id);
+        if (!card) return;
+        setActiveId(targetService.id);
+        setHighlightedId(targetService.id);
+        revealPillHorizontally(targetService.id);
+        window.setTimeout(() => setHighlightedId((current) => current === targetService.id ? "" : current), 1500);
+      });
+    }
+
     const updateStickyBar = () => {
       setScrolled(window.scrollY > 100);
       const bar = pillBarRef.current;
@@ -48,12 +71,7 @@ export default function ServiceDetailContent({ category, categories, quoteHref, 
         if (visible) {
           const id = visible.target.id;
           setActiveId(id);
-          const pill = document.getElementById(`service-pill-${id}`);
-          pill?.scrollIntoView({
-            behavior: reduceMotion.current ? "instant" : "smooth",
-            block: "nearest",
-            inline: "nearest",
-          });
+          revealPillHorizontally(id);
         }
       },
       {
@@ -68,15 +86,17 @@ export default function ServiceDetailContent({ category, categories, quoteHref, 
     });
 
     return () => {
+      if (targetFrame !== undefined) window.cancelAnimationFrame(targetFrame);
       observer.disconnect();
       window.removeEventListener("scroll", updateStickyBar);
       window.removeEventListener("resize", updateStickyBar);
     };
   }, [visibleServices]);
 
-  const handlePillClick = (id: string) => {
+  const handlePillClick = (id: string, scroll = true) => {
     setActiveId(id);
     setHighlightedId(id);
+    if (scroll) cardRefs.current.get(id)?.scrollIntoView({ behavior: reduceMotion.current ? "auto" : "smooth", block: "start" });
     window.setTimeout(() => {
       setHighlightedId((current) => (current === id ? "" : current));
     }, 1500);

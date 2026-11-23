@@ -156,14 +156,7 @@ export default function PopularAreasTrain() {
                   className="w-[220px] shrink-0 overflow-hidden border border-white/10 bg-black sm:w-[280px]"
                 >
                   <div className="relative h-44 w-full sm:h-52">
-                    <Image
-                      src={area.image}
-                      alt={`${area.name} service area`}
-                      fill
-                      sizes="(max-width: 639px) 220px, 280px"
-                      quality={70}
-                      className="object-cover"
-                    />
+                    <Image src={area.image} alt={`${area.name} service area`} fill sizes="(max-width: 639px) 220px, 280px" quality={70} className="object-cover" />
                   </div>
                   <div className="border-t border-gold/60 px-5 py-4">
                     <h3 className="text-lg font-semibold text-white">{area.name}</h3>

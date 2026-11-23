@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     );
   }
 
-  await sendAdminAlert(`New Moving Quote: ${lead.full_name} (${lead.move_type})`, [
+  await sendAdminAlert(`New Moving Quote: ${lead.full_name}`, [
     ['Name', lead.full_name],
     ['Phone', lead.phone],
     ['Email', lead.email],

@@ -14,7 +14,7 @@ function escapeHtml(value: string) {
 
 export async function sendAdminAlert(subject: string, rows: Array<[string, string | undefined]>) {
   const to = process.env.ADMIN_ALERT_EMAIL;
-  const from = process.env.RESEND_FROM_EMAIL ?? 'Shalom Movers <onboarding@resend.dev>';
+  const from = process.env.RESEND_FROM_EMAIL ?? 'Shalom Logistics <onboarding@resend.dev>';
 
   if (!resend || !to) return;
 
@@ -48,7 +48,7 @@ export async function sendAdminAlert(subject: string, rows: Array<[string, strin
 }
 
 export async function sendSubscriberWelcome(email: string) {
-  const from = process.env.RESEND_FROM_EMAIL ?? 'Shalom Movers <onboarding@resend.dev>';
+  const from = process.env.RESEND_FROM_EMAIL ?? 'Shalom Logistics <onboarding@resend.dev>';
   if (!resend) return;
 
   const defaults = {

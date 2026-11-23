@@ -12,6 +12,7 @@ import {
   easeOut,
 } from "framer-motion";
 import HomeReveal from "@/components/home/HomeReveal";
+import { SOCIAL_LINKS } from "@/lib/constants";
 
 interface CtaBannerProps {
   heading?: string;
@@ -76,6 +77,8 @@ export default function CtaBanner({
   const lorryOuterStyle = prefersReducedMotion
     ? { x: 0, opacity: 1 }
     : { x: isMobile ? lorryXMobile : lorryX, opacity: lorryOpacity };
+  const whatsappNumber = SOCIAL_LINKS.find((item) => item.platform === "WhatsApp")?.url;
+  const whatsappHref = `${whatsappNumber ?? "https://wa.me/"}?text=${encodeURIComponent("Hi Shalom Logistics, I'd like to make a move.")}`;
 
   return (
     <section
@@ -131,13 +134,16 @@ export default function CtaBanner({
         <p className="mt-4 text-jungle-dark/70 text-lg">
           {subtext}
         </p>
-        <div className="mt-8 flex items-center justify-center">
+        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
           <Link
-            href={primaryHref}
-            className="inline-flex min-w-64 items-center justify-center px-12 py-3.5 rounded-xl bg-jungle-dark hover:bg-jungle text-white text-base font-semibold transition-all duration-300 shadow-xl shadow-jungle-dark/20 hover:-translate-y-0.5"
+            href={primaryHref.startsWith("/") && primaryHref !== "#quote" ? primaryHref : "/quote"}
+            className="inline-flex min-h-12 min-w-64 items-center justify-center rounded-xl bg-jungle-dark px-8 py-3.5 text-base font-semibold text-white shadow-xl shadow-jungle-dark/20 transition-all duration-300 hover:-translate-y-0.5 hover:bg-jungle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jungle-dark focus-visible:ring-offset-2 focus-visible:ring-offset-gold"
           >
             {primaryLabel}
           </Link>
+          <a href={whatsappHref} target="_blank" rel="noopener noreferrer" aria-label="Chat with Shalom Logistics on WhatsApp" className="inline-flex min-h-12 w-full min-w-56 items-center justify-center rounded-xl border-2 border-jungle-dark/50 bg-white/70 px-6 py-3 text-base font-semibold text-jungle-dark transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jungle-dark focus-visible:ring-offset-2 focus-visible:ring-offset-gold sm:w-auto">
+            Chat on WhatsApp
+          </a>
         </div>
       </HomeReveal>
     </section>

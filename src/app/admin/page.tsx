@@ -12,7 +12,7 @@ export default async function AdminHomePage() {
     supabase.from("quote_requests").select("*").order("created_at", { ascending: false }),
     supabase.from("contact_messages").select("*").order("created_at", { ascending: false }),
     supabase.from("subscribers").select("*").order("created_at", { ascending: false }),
-    supabase.from("site_sections").select("section_key,label,is_visible,content,updated_at").order("section_key"),
+    supabase.from("site_sections").select("section_key,label,is_visible,content,updated_at").neq("section_key", "global_media").order("section_key"),
   ]);
 
   async function signOut() {

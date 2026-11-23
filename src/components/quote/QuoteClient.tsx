@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
@@ -23,6 +23,7 @@ const MOVING_SERVICES = new Set([
   "scope-and-distance",
   "specialized-logistics",
 ]);
+const ON_SITE_SERVICES = new Set(["CCTV Installation", "Water Filter Installation"]);
 const ON_SITE_DROPOFF = "N/A (On-site service)";
 const QUOTE_SLOT_IDS = ["quote-residential", "quote-commercial", "quote-scope", "quote-specialized", "quote-cleaning"] as const;
 
@@ -101,8 +102,9 @@ function FieldError({ id, children }: { id: string; children: string }) {
 
 export default function QuoteClient({ content = {}, sectionVisible = true, categories = SERVICE_CATEGORIES, details = SERVICE_DETAILS, whatsappUrl = "https://wa.me/254751794728", phone = BUSINESS_INFO.phone1 }: { content?: Record<string, unknown>; sectionVisible?: boolean; categories?: readonly typeof SERVICE_CATEGORIES[number][]; details?: typeof SERVICE_DETAILS; whatsappUrl?: string; phone?: string }) {
   const reduceMotion = useReducedMotion() === true;
-  const [fields, setFields] = useState(() => {
-    if (typeof window === "undefined") return INITIAL_FIELDS;
+  const [fields, setFields] = useState(INITIAL_FIELDS);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const requestedName = params.get("service")?.toLowerCase();
     const requestedCategory = params.get("category")?.toLowerCase();
@@ -111,29 +113,33 @@ export default function QuoteClient({ content = {}, sectionVisible = true, categ
     ) ?? categories.find((category) => category.slug === requestedCategory) ?? categories.find((category) => {
       const categoryServiceName = details[category.slug]?.services.find(
         (service) => service.name.toLowerCase() === requestedName
-      )?.name;
+      )?.name ?? category.subServices.map((service) => typeof service === "string" ? service : service.name).find((name) => name.toLowerCase() === requestedName);
       return categoryServiceName?.toLowerCase() === requestedName;
     });
-    const requestedSubservice = params.get("subservice");
+    const requestedSubservices = params.getAll("subservice");
     const requestedFrom = params.get("from") ?? "";
     const requestedTo = params.get("to") ?? "";
-    const matchingSubservice = requestedService && requestedSubservice
-      ? details[requestedService.slug]?.services.find(
-          (service) => service.isVisible !== false && service.name.toLowerCase() === requestedSubservice.toLowerCase()
-        )?.name
-      : undefined;
-    return {
-      ...INITIAL_FIELDS,
-      ...(requestedService ? { service: requestedService.slug, subservices: matchingSubservice ? [matchingSubservice] : [] } : {}),
-      from: requestedFrom,
-      to: requestedTo,
-    };
-  });
+    const requestedLocation = params.get("location") ?? "";
+    const matchingSubservices = requestedService ? requestedSubservices.map((name) =>
+      details[requestedService.slug]?.services.find((service) => service.isVisible !== false && service.name.toLowerCase() === name.toLowerCase())?.name
+      ?? requestedService.subServices.map((service) => typeof service === "string" ? service : service.isVisible !== false ? service.name : "").find((serviceName) => serviceName.toLowerCase() === name.toLowerCase())
+    ).filter((name): name is string => Boolean(name)) : [];
+    const frame = window.requestAnimationFrame(() => {
+      setFields((current) => ({
+        ...current,
+        ...(requestedService ? { service: requestedService.slug, subservices: matchingSubservices } : {}),
+        from: requestedFrom,
+        to: requestedTo,
+        location: requestedLocation,
+      }));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [categories, details]);
   const [errors, setErrors] = useState<QuoteErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState<{ name: string; href: string; channel: "saved" | "whatsapp" } | null>(null);
   const [submitError, setSubmitError] = useState("");
-  const isMovingService = MOVING_SERVICES.has(fields.service);
+  const isMovingService = MOVING_SERVICES.has(fields.service) && !fields.subservices.some((service) => ON_SITE_SERVICES.has(service));
   const selectedCategory = categories.find(
     (category) => category.slug === fields.service
   );
@@ -290,6 +296,7 @@ export default function QuoteClient({ content = {}, sectionVisible = true, categ
 
   const inputClass =
     "mt-2 h-[52px] w-full rounded-[10px] border border-[color-mix(in_srgb,var(--ink)_25%,transparent)] bg-white px-4 text-base text-[var(--ink)] outline-none placeholder:text-[color-mix(in_srgb,var(--ink)_50%,transparent)] focus:border-[var(--ink)] focus:ring-[3px] focus:ring-gold/60 autofill:!bg-white autofill:!text-[var(--ink)]";
+  const fieldInputClass = (error?: string) => `${inputClass}${error ? " border-red-700 ring-2 ring-red-700/30" : ""}`;
   const labelClass = "block text-sm font-medium text-[color-mix(in_srgb,var(--ink)_80%,transparent)]";
   const groupMotion = (index: number) => ({
     initial: reduceMotion ? false : { opacity: 0, y: 12 },
@@ -376,7 +383,7 @@ export default function QuoteClient({ content = {}, sectionVisible = true, categ
                   aria-hidden="true"
                 />
                 <motion.div {...groupMotion(0)}>
-                  <fieldset aria-describedby={errors.service ? "quote-service-error" : undefined}>
+                  <fieldset aria-describedby={errors.service ? "quote-service-error" : undefined} className={errors.service ? "rounded-xl ring-2 ring-red-700/30" : ""}>
                     <legend className="flex items-center gap-3 text-base font-bold">
                       <NumberBadge>1</NumberBadge> {String(content.serviceHeading ?? "Service category")}
                     </legend>
@@ -425,7 +432,7 @@ export default function QuoteClient({ content = {}, sectionVisible = true, categ
                       exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
                       transition={{ duration: reduceMotion ? 0 : 0.22 }}
                       aria-describedby={errors.subservices ? "quote-subservices-error" : undefined}
-                      className="overflow-hidden"
+                      className={`overflow-hidden ${errors.subservices ? "rounded-xl ring-2 ring-red-700/30" : ""}`}
                     >
                       <legend className="flex items-center gap-3 text-base font-bold">
                         <NumberBadge>2</NumberBadge> {String(content.serviceOptionsHeading ?? "Select service options")}
@@ -472,18 +479,18 @@ export default function QuoteClient({ content = {}, sectionVisible = true, categ
                   <div className="grid gap-5 sm:grid-cols-2">
                     <label htmlFor="quote-name" className={labelClass}>
                       {String(content.nameLabel ?? "Name")}
-                      <input id="quote-name" name="name" type="text" autoComplete="name" value={fields.name} onChange={(event) => changeField("name", event.target.value)} aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? "quote-name-error" : undefined} required placeholder={String(content.namePlaceholder ?? "Your name")} className={inputClass} />
+                      <input id="quote-name" name="name" type="text" autoComplete="name" value={fields.name} onChange={(event) => changeField("name", event.target.value)} aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? "quote-name-error" : undefined} required placeholder={String(content.namePlaceholder ?? "Your name")} className={fieldInputClass(errors.name)} />
                       {errors.name ? <FieldError id="quote-name-error">{errors.name}</FieldError> : null}
                     </label>
                     <label htmlFor="quote-phone" className={labelClass}>
                       {String(content.phoneLabel ?? "Phone")}
-                      <input id="quote-phone" name="phone" type="tel" autoComplete="tel" inputMode="tel" value={fields.phone} onChange={(event) => changeField("phone", event.target.value)} aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? "quote-phone-error" : undefined} required placeholder={String(content.phonePlaceholder ?? "Your phone number")} className={inputClass} />
+                      <input id="quote-phone" name="phone" type="tel" autoComplete="tel" inputMode="tel" value={fields.phone} onChange={(event) => changeField("phone", event.target.value)} aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? "quote-phone-error" : undefined} required placeholder={String(content.phonePlaceholder ?? "Your phone number")} className={fieldInputClass(errors.phone)} />
                       {errors.phone ? <FieldError id="quote-phone-error">{errors.phone}</FieldError> : null}
                     </label>
                   </div>
                   <label htmlFor="quote-email" className={`${labelClass} mt-5`}>
                     {String(content.emailLabel ?? "Email")} <span className="text-[color-mix(in_srgb,var(--ink)_55%,transparent)">({String(content.optionalLabel ?? "optional")})</span>
-                    <input id="quote-email" name="email" type="email" autoComplete="email" inputMode="email" value={fields.email} onChange={(event) => changeField("email", event.target.value)} aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? "quote-email-error" : undefined} placeholder={String(content.emailPlaceholder ?? "you@example.com")} className={inputClass} />
+                    <input id="quote-email" name="email" type="email" autoComplete="email" inputMode="email" value={fields.email} onChange={(event) => changeField("email", event.target.value)} aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? "quote-email-error" : undefined} placeholder={String(content.emailPlaceholder ?? "you@example.com")} className={fieldInputClass(errors.email)} />
                     {errors.email ? <FieldError id="quote-email-error">{errors.email}</FieldError> : null}
                   </label>
                 </motion.div>
@@ -507,19 +514,19 @@ export default function QuoteClient({ content = {}, sectionVisible = true, categ
                             <>
                               <label htmlFor="quote-from" className={labelClass}>
                                 {String(content.fromLabel ?? "From")}
-                                <input id="quote-from" name="from" value={fields.from} onChange={(event) => changeField("from", event.target.value)} placeholder={String(content.fromPlaceholder ?? "Starting location")} aria-invalid={Boolean(errors.from)} aria-describedby={errors.from ? "quote-from-error" : undefined} className={inputClass} />
+                                <input id="quote-from" name="from" value={fields.from} onChange={(event) => changeField("from", event.target.value)} placeholder={String(content.fromPlaceholder ?? "Starting location")} aria-invalid={Boolean(errors.from)} aria-describedby={errors.from ? "quote-from-error" : undefined} className={fieldInputClass(errors.from)} />
                                 {errors.from ? <FieldError id="quote-from-error">{errors.from}</FieldError> : null}
                               </label>
                               <label htmlFor="quote-to" className={labelClass}>
                                 {String(content.toLabel ?? "To")}
-                                <input id="quote-to" name="to" value={fields.to} onChange={(event) => changeField("to", event.target.value)} placeholder={String(content.toPlaceholder ?? "Destination")} aria-invalid={Boolean(errors.to)} aria-describedby={errors.to ? "quote-to-error" : undefined} className={inputClass} />
+                                <input id="quote-to" name="to" value={fields.to} onChange={(event) => changeField("to", event.target.value)} placeholder={String(content.toPlaceholder ?? "Destination")} aria-invalid={Boolean(errors.to)} aria-describedby={errors.to ? "quote-to-error" : undefined} className={fieldInputClass(errors.to)} />
                                 {errors.to ? <FieldError id="quote-to-error">{errors.to}</FieldError> : null}
                               </label>
                             </>
                           ) : (
                             <label htmlFor="quote-location" className={labelClass}>
                               {String(content.locationLabel ?? "Location")}
-                              <input id="quote-location" name="location" value={fields.location} onChange={(event) => changeField("location", event.target.value)} placeholder={String(content.locationPlaceholder ?? "Where do you need the service?")} aria-invalid={Boolean(errors.location)} aria-describedby={errors.location ? "quote-location-error" : undefined} className={inputClass} />
+                              <input id="quote-location" name="location" value={fields.location} onChange={(event) => changeField("location", event.target.value)} placeholder={String(content.locationPlaceholder ?? "Where do you need the service?")} aria-invalid={Boolean(errors.location)} aria-describedby={errors.location ? "quote-location-error" : undefined} className={fieldInputClass(errors.location)} />
                               {errors.location ? <FieldError id="quote-location-error">{errors.location}</FieldError> : null}
                             </label>
                           )}
