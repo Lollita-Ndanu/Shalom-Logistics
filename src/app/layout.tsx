@@ -78,6 +78,7 @@ export default async function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
+      <head><script dangerouslySetInnerHTML={{ __html: 'document.documentElement.classList.add("js")' }} /></head>
       <body className="min-h-screen flex flex-col font-sans antialiased text-gray-900 bg-white">
           {sections.header?.isVisible !== false ? <Navbar navLinks={navLinks} quoteLabel={String(header?.ctaLabel ?? "Get a Quote")} quoteHref={String(header?.ctaHref ?? "").startsWith("/") && header?.ctaHref !== "#quote" ? String(header?.ctaHref) : "/quote"} logoUrl={footerContent.logoUrl} companyName={footerContent.name} phone1={footerContent.phone1} phone2={footerContent.phone2} /> : null}
           <main className="flex-1">{children}</main>
