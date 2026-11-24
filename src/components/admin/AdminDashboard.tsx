@@ -218,12 +218,12 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
   const gallerySection = sections.find((section) => section.section_key === "gallery_content");
   const galleryContent = gallerySection?.content;
   const galleryItems = galleryContent && Array.isArray(galleryContent.items) ? galleryContent.items : [];
-  const galleryFallbackPhotos = galleryItems.length ? [] : PUBLIC_GALLERY_FALLBACKS.map((item, index): PhotoRef => ({ key: `gallery-fallback:${index}`, page: "Gallery", section: `Gallery · ${item.category}`, url: item.src, alt: item.alt, caption: item.alt, locked: false, path: ["items", String(index), "src"], sectionKey: "gallery_content" }));
+  const galleryFallbackPhotos = galleryItems.length ? [] : PUBLIC_GALLERY_FALLBACKS.map((item, index): PhotoRef => ({ key: `gallery-fallback:${index}`, page: "Gallery page", section: `Gallery · ${item.category}`, url: item.src, alt: item.alt, caption: item.alt, locked: false, path: ["items", String(index), "src"], sectionKey: "gallery_content" }));
   const galleryPublicPhotos = galleryItems.map((value, index): PhotoRef | null => {
     if (!value || typeof value !== "object") return null;
     const item = value as Record<string, unknown>;
     if (item.isVisible === false || typeof item.src !== "string" || !item.src) return null;
-    return { key: `gallery-public:${index}`, page: "Gallery", section: `Gallery · ${String(item.category ?? "Other Services")}`, url: item.src, alt: String(item.alt ?? ""), caption: String(item.caption ?? item.alt ?? ""), locked: false, path: ["items", String(index), "src"], sectionKey: "gallery_content" };
+    return { key: `gallery-public:${index}`, page: "Gallery page", section: `Gallery · ${String(item.category ?? "Other Services")}`, url: item.src, alt: String(item.alt ?? ""), caption: String(item.caption ?? item.alt ?? ""), locked: false, path: ["items", String(index), "src"], sectionKey: "gallery_content" };
   }).filter((photo): photo is PhotoRef => photo !== null);
   if (!galleryItems.length) photos.push(...galleryFallbackPhotos);
   else photos.push(...galleryPublicPhotos.filter((photo) => !photos.some((existing) => existing.url === photo.url && existing.page === "Gallery")));
@@ -392,10 +392,10 @@ function buildSearchHits(data: DashboardData, query: string): SearchHit[] {
   for (const section of data.sections) {
     const flat = flattenContent(section.content);
     const galleryItems = Array.isArray(section.content.items) ? section.content.items : [];
-    const galleryFallbacks = section.section_key === "gallery_content" && !galleryItems.length ? PUBLIC_GALLERY_FALLBACKS.map((item, index): PhotoRef => ({ key: `gallery-fallback:${index}`, page: "Gallery", section: `Gallery · ${item.category}`, url: item.src, alt: item.alt, caption: item.alt, locked: false, path: ["items", String(index), "src"], sectionKey: "gallery_content" })) : [];
+      const galleryFallbacks = section.section_key === "gallery_content" && !galleryItems.length ? PUBLIC_GALLERY_FALLBACKS.map((item, index): PhotoRef => ({ key: `gallery-fallback:${index}`, page: "Gallery page", section: `Gallery · ${item.category}`, url: item.src, alt: item.alt, caption: item.alt, locked: false, path: ["items", String(index), "src"], sectionKey: "gallery_content" })) : [];
     for (const photo of [...getSectionPhotos(section), ...getStaticPhotos().filter((item) => item.sectionKey === section.section_key), ...galleryFallbacks]) {
       const page = photo.page;
-      const photoPageSlug = page === "Gallery" ? "gallery" : page.toLowerCase();
+      const photoPageSlug = page === "Gallery page" ? "gallery" : page.toLowerCase();
       add({ type: "Photos", title: photo.alt || photo.caption || photo.section, text: `${photo.section} · ${photo.alt || photo.caption || photo.url}`, href: `/admin/gallery?page=${photoPageSlug}&photo=${encodeURIComponent(photo.key)}`, locked: photo.locked, key: `photo-${photo.key}` }, `${photo.alt} ${photo.caption} ${photo.section} ${page} ${photo.url}`);
     }
     const isService = section.section_key.startsWith("services") || section.section_key === "home_services";
@@ -438,7 +438,7 @@ function sectionPage(key: string): string {
   if (key.startsWith("home_") || key === "hero" || key === "services_how_it_works") return "Home";
   if (key.startsWith("about_")) return "About";
   if (key.startsWith("services")) return "Services";
-  if (key === "gallery_content") return "Gallery";
+  if (key === "gallery_content") return "Gallery page";
   if (key === "quote_content") return "Quote";
   if (key === "contact_content") return "Contact";
   if (key === "global_media" || key === "global_brand" || key === "footer" || key === "header") return "Shared";
