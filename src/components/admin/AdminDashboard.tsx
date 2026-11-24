@@ -3,9 +3,10 @@
 import { useMemo, useState, useEffect, useRef, type FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LockKeyhole, Menu, Search, X, ChevronDown, LayoutDashboard, Truck, Users, MessageSquare, Settings, Quote, Image as ImageIcon } from "lucide-react";
 import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, Input, LoadingState, Table, Toast } from "@/components/admin/ui";
+import { FALLBACK_ITEMS as PUBLIC_GALLERY_FALLBACKS } from "@/components/gallery/GalleryClient";
 
 type SearchInputHandle = HTMLInputElement;
 
@@ -36,7 +37,7 @@ const NAV_ITEMS: { label: AdminPage; href: string; icon: typeof LayoutDashboard 
 ];
 
 const PUBLIC_PAGE_TABS = [
-  { slug: "all", label: "All photos" }, { slug: "home", label: "Home" }, { slug: "about", label: "About" },
+  { slug: "all", label: "All pages" }, { slug: "home", label: "Home" }, { slug: "about", label: "About" },
   { slug: "services", label: "Services" }, { slug: "gallery", label: "Gallery page" }, { slug: "quote", label: "Quote" },
   { slug: "contact", label: "Contact" }, { slug: "credits", label: "Credits" },
 ];
@@ -158,7 +159,7 @@ export default function AdminDashboard({ page, ownerEmail, displayName, initialD
         </nav>
         <form action={signOut} className="border-t border-white/10 pt-4"><Button type="submit" variant="sidebar" className="w-full justify-start">Sign out</Button></form>
       </aside>
-      <header className="sticky top-0 z-30 border-b border-[var(--admin-border)] bg-white/95 text-[var(--admin-ink)] shadow-sm backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-[var(--admin-border)] bg-white text-[var(--admin-ink)] shadow-sm">
         <div className="mx-auto flex min-h-20 max-w-[1500px] items-center gap-3 px-4 sm:px-8">
           <button aria-label="Open menu" onClick={() => setDrawerOpen(true)} className="rounded-lg p-2 hover:bg-slate-100 lg:hidden"><Menu size={22} /></button>
           <h1 className="min-w-0 flex-1 text-xl font-bold sm:text-2xl">{pageTitle}</h1>
@@ -195,12 +196,9 @@ function DashboardHome({ displayName, date, data, loading, error, quotesNew, unr
 }
 
 function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: Section[]; sectionsError: string; busy: string; onMutate: (payload: Record<string, unknown>) => Promise<void> }) {
-  const pathname = usePathname();
+  const router = useRouter();
   const gallerySearchParams = useSearchParams();
-  const tabSlug = pathname.split("/")[3] ?? "all";
   const [filterPageOverride, setFilterPageOverride] = useState<string | null>(null);
-  const routePageFilter = tabSlug === "all" ? "All pages" : PUBLIC_PAGE_TABS.find((item) => item.slug === tabSlug)?.label ?? "All pages";
-  const [filterSection, setFilterSection] = useState("All sections");
   const [query, setQuery] = useState("");
   const [sharedOnly, setSharedOnly] = useState(false);
   const [missingAlt, setMissingAlt] = useState(false);
@@ -217,16 +215,30 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const photos = sections.flatMap((section) => [...getSectionPhotos(section), ...getStaticPhotos().filter((photo) => photo.sectionKey === section.section_key)]);
+  const gallerySection = sections.find((section) => section.section_key === "gallery_content");
+  const galleryContent = gallerySection?.content;
+  const galleryItems = galleryContent && Array.isArray(galleryContent.items) ? galleryContent.items : [];
+  const galleryFallbackPhotos = galleryItems.length ? [] : PUBLIC_GALLERY_FALLBACKS.map((item, index): PhotoRef => ({ key: `gallery-fallback:${index}`, page: "Gallery", section: `Gallery · ${item.category}`, url: item.src, alt: item.alt, caption: item.alt, locked: false, path: ["items", String(index), "src"], sectionKey: "gallery_content" }));
+  const galleryPublicPhotos = galleryItems.map((value, index): PhotoRef | null => {
+    if (!value || typeof value !== "object") return null;
+    const item = value as Record<string, unknown>;
+    if (item.isVisible === false || typeof item.src !== "string" || !item.src) return null;
+    return { key: `gallery-public:${index}`, page: "Gallery", section: `Gallery · ${String(item.category ?? "Other Services")}`, url: item.src, alt: String(item.alt ?? ""), caption: String(item.caption ?? item.alt ?? ""), locked: false, path: ["items", String(index), "src"], sectionKey: "gallery_content" };
+  }).filter((photo): photo is PhotoRef => photo !== null);
+  if (!galleryItems.length) photos.push(...galleryFallbackPhotos);
+  else photos.push(...galleryPublicPhotos.filter((photo) => !photos.some((existing) => existing.url === photo.url && existing.page === "Gallery")));
   const selected = selectedOverride ?? (selectedPhotoId ? photos.find((photo) => photo.key === selectedPhotoId) ?? null : null);
   const setSelected = setSelectedOverride;
   const pageSelection = gallerySearchParams.get("page");
-  const effectivePage = filterPageOverride ?? (pageSelection ? PUBLIC_PAGE_TABS.find((item) => item.slug === pageSelection)?.label ?? routePageFilter : routePageFilter);
-  const filtered = photos.filter((photo) => (effectivePage === "All pages" || photo.page === effectivePage || photo.page === "Shared") && (filterSection === "All sections" || photo.section === filterSection) && (!sharedOnly || photos.filter((other) => other.url === photo.url).length > 1) && (!missingAlt || !photo.alt.trim()) && (!query || `${photo.alt} ${photo.caption} ${photo.page} ${photo.section} ${photo.url}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())));
-  const sectionNames = [...new Set(photos.map((photo) => photo.section))].sort();
+  const effectivePage = filterPageOverride ?? (pageSelection ? PUBLIC_PAGE_TABS.find((item) => item.slug === pageSelection)?.label ?? "All pages" : "All pages");
+  const filtered = photos.filter((photo) => (effectivePage === "All pages" || photo.page === effectivePage || photo.page === "Shared") && (!sharedOnly || photos.filter((other) => other.url === photo.url).length > 1) && (!missingAlt || !photo.alt.trim()) && (!query || `${photo.alt} ${photo.caption} ${photo.page} ${photo.section} ${photo.url}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())));
   async function savePhoto(photo: PhotoRef, change: { url?: string; alt?: string; remove?: boolean }, applyEverywhere = false) {
-        const section = sections.find((item) => item.section_key === photo.sectionKey);
-        if (!section || photo.locked) return;
+    const section = sections.find((item) => item.section_key === photo.sectionKey);
+    if (!section || photo.locked) return;
     const content = structuredClone(section.content);
+    if (photo.key.startsWith("gallery-fallback:") && !galleryItems.length) {
+      content.items = PUBLIC_GALLERY_FALLBACKS.map((item) => ({ ...item }));
+    }
     const parentAt = (path: string[]) => {
       let current: unknown = content;
       for (const key of path.slice(0, -1)) current = Array.isArray(current) ? current[Number(key)] : (current as Record<string, unknown>)[key];
@@ -349,11 +361,9 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
   if (sectionsError) return <ErrorState title="Could not load photos" description={sectionsError} />;
   if (busy === "loading") return <LoadingState label="Loading photos…" />;
   return <section className="mt-2 space-y-5">
-    <nav className="flex gap-2 overflow-x-auto border-b border-[var(--admin-border)]" aria-label="Filter photos by page">{PUBLIC_PAGE_TABS.map((pageTab) => { const active = pageTab.slug === "all" ? tabSlug === "gallery" : tabSlug === pageTab.slug; return <Link key={pageTab.slug} href={pageTab.slug === "all" ? "/admin/gallery" : `/admin/gallery/${pageTab.slug}`} className={`shrink-0 border-b-2 px-4 py-3 text-sm font-semibold ${active ? "border-[var(--admin-green)] text-[var(--admin-green-dark)]" : "border-transparent text-[var(--admin-muted)]"}`}>{pageTab.label}</Link>; })}</nav>
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Input aria-label="Search photos" placeholder="Search alt text, page, section…" value={query} onChange={(event) => setQuery(event.target.value)} /><select aria-label="Filter by page" value={effectivePage} onChange={(event) => setFilterPageOverride(event.target.value)} className="min-h-10 rounded-lg border border-[var(--admin-border)] bg-white px-3 text-sm"><option>All pages</option>{PUBLIC_PAGE_TABS.slice(1).map((tab) => <option key={tab.slug}>{tab.label}</option>)}</select><select aria-label="Filter by section" value={filterSection} onChange={(event) => setFilterSection(event.target.value)} className="min-h-10 rounded-lg border border-[var(--admin-border)] bg-white px-3 text-sm"><option>All sections</option>{sectionNames.map((name) => <option key={name}>{name}</option>)}</select><div className="flex flex-wrap items-center gap-4 text-sm"><label className="flex items-center gap-2"><input type="checkbox" checked={sharedOnly} onChange={(event) => setSharedOnly(event.target.checked)} />Shared only</label><label className="flex items-center gap-2"><input type="checkbox" checked={missingAlt} onChange={(event) => setMissingAlt(event.target.checked)} />Missing alt text</label></div></div>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"><Input aria-label="Search photos" placeholder="Search alt text, page, section…" value={query} onChange={(event) => setQuery(event.target.value)} /><select aria-label="Filter by page" value={effectivePage} onChange={(event) => { setFilterPageOverride(event.target.value); const slug = PUBLIC_PAGE_TABS.find((tab) => tab.label === event.target.value)?.slug ?? "all"; router.replace(slug === "all" ? "/admin/gallery" : `/admin/gallery?page=${slug}`); }} className="min-h-10 rounded-lg border border-[var(--admin-border)] bg-white px-3 text-sm">{PUBLIC_PAGE_TABS.map((tab) => <option key={tab.slug} value={tab.label}>{tab.label}</option>)}</select><div className="flex flex-wrap items-center gap-4 text-sm"><label className="flex items-center gap-2"><input type="checkbox" checked={sharedOnly} onChange={(event) => setSharedOnly(event.target.checked)} />Shared only</label><label className="flex items-center gap-2"><input type="checkbox" checked={missingAlt} onChange={(event) => setMissingAlt(event.target.checked)} />Missing alt text</label></div></div>
     {uploadError ? <ErrorState title="Photo action failed" description={uploadError} /> : null}{changeProgress ? <Toast>{changeProgress}</Toast> : null}
-    {filtered.length ? <div className="space-y-6">{[...new Set(filtered.map((photo) => photo.section))].map((sectionName) => <section key={sectionName}><h2 className="mb-3 text-lg font-bold">{sectionName}</h2><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.filter((photo) => photo.section === sectionName).map((photo) => { const uses = photos.filter((item) => item.url === photo.url); const pages = [...new Set(uses.map((item) => item.page))]; return <article key={photo.key} className="overflow-hidden rounded-xl border border-[var(--admin-border)] bg-white shadow-sm"><button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="relative block aspect-[16/10] w-full bg-slate-100 text-left"><Image src={photo.url} alt={photo.alt} fill unoptimized sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw" className="object-cover" />{photo.locked ? <span className="absolute left-2 top-2"><Badge><LockKeyhole size={12} className="mr-1" />Managed by developer</Badge></span> : null}</button><div className="space-y-2 p-4"><p className="font-bold">{photo.section} · {photo.page}</p>{pages.length > 1 ? <span title={`Appears on: ${pages.join(", ")}`}><Badge variant="gold">Shared: appears on {pages.length} pages</Badge></span> : null}<p className="text-sm text-[var(--admin-muted)]">{photo.alt || photo.caption || "No alt text"}</p><p className="text-xs text-[var(--admin-muted)]">Used on: {pages.join(", ")}</p><div className="flex items-center justify-between"><button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="text-sm font-semibold text-[var(--admin-green-dark)] underline">View details</button>{photo.sectionKey === "gallery_content" && !photo.locked ? <span className="flex gap-2"><button type="button" aria-label="Move photo up" onClick={() => void moveGalleryPhoto(photo, -1)}>↑</button><button type="button" aria-label="Move photo down" onClick={() => void moveGalleryPhoto(photo, 1)}>↓</button></span> : null}</div></div></article>; })}</div></section>)}</div> : <EmptyState title="No photos on this page" description="Try another page or adjust the current filters." />}
-    {filtered.some((photo) => photo.sectionKey === "gallery_content") ? null : null}
+    {filtered.length ? <div className="space-y-6">{[...new Set(filtered.map((photo) => photo.section))].map((sectionName) => <section key={sectionName}><h2 className="mb-3 text-lg font-bold">{sectionName}</h2><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.filter((photo) => photo.section === sectionName).map((photo) => { const uses = photos.filter((item) => item.url === photo.url); const usage = usageLocations(uses); const sharedPages = [...new Set(uses.flatMap((item) => item.page === "Shared" ? sharedLocationPages(item) : [item.page]))]; return <article key={photo.key} className="overflow-hidden rounded-xl border border-[var(--admin-border)] bg-white shadow-sm"><button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="relative block aspect-[16/10] w-full bg-slate-100 text-left"><Image src={photo.url} alt={photo.alt} fill unoptimized sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw" className="object-cover" />{photo.locked ? <span className="absolute left-2 top-2"><Badge><LockKeyhole size={12} className="mr-1" />Managed by developer</Badge></span> : null}</button><div className="space-y-2 p-4"><p className="font-bold">{photo.section} · {photo.page}</p>{sharedPages.length > 1 ? <span title={`Appears on: ${usage}`}><Badge variant="gold">Shared: appears on {sharedPages.length} pages · {sharedPages.join(", ")}</Badge></span> : null}<p className="text-sm text-[var(--admin-muted)]">{photo.alt || photo.caption || "No alt text"}</p><p className="text-xs text-[var(--admin-muted)]">Used on: {usage}</p><div className="flex items-center justify-between"><button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="text-sm font-semibold text-[var(--admin-green-dark)] underline">View details</button>{photo.sectionKey === "gallery_content" && !photo.locked ? <span className="flex gap-2"><button type="button" aria-label="Move photo up" onClick={() => void moveGalleryPhoto(photo, -1)}>↑</button><button type="button" aria-label="Move photo down" onClick={() => void moveGalleryPhoto(photo, 1)}>↓</button></span> : null}</div></div></article>; })}</div></section>)}</div> : <EmptyState title={effectivePage === "All pages" ? "No photos found" : `No photos on ${effectivePage}`} description="Try another page or adjust the current filters." />}
     {selected ? <div className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto bg-black/60 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}><section role="dialog" aria-modal="true" aria-labelledby="photo-dialog-title" className="w-full max-w-3xl rounded-2xl bg-white p-5 shadow-2xl"><div className="flex items-center justify-between"><h2 id="photo-dialog-title" className="text-xl font-bold">Photo details</h2><button type="button" onClick={() => setSelected(null)} aria-label="Close photo details">×</button></div><div className="relative mt-4 h-[50vh] w-full"><Image src={selected.url} alt={selected.alt} fill unoptimized sizes="(max-width: 768px) 100vw, 768px" className="rounded-xl bg-slate-100 object-contain" /></div><p className="mt-3 break-all text-xs text-[var(--admin-muted)]">{selected.url}</p><p className="mt-2 text-sm">Used in: {photos.filter((photo) => photo.url === selected.url).map((photo) => `${photo.page} / ${photo.section}`).join("; ")}</p>{selected.locked ? <div className="mt-4"><LockedField /></div> : <><label className="mt-4 block text-sm font-semibold">Alt text / caption<input value={altText} onChange={(event) => setAltText(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><div className="mt-4 flex flex-wrap gap-2"><Button type="button" onClick={() => { if (photos.filter((photo) => photo.url === selected.url).length > 1) setPendingAltSave({ photo: selected, alt: altText }); else void savePhoto(selected, { alt: altText }); }}>Save alt text</Button><label className="inline-flex cursor-pointer items-center rounded-lg border border-[var(--admin-border)] px-4 py-2 text-sm font-semibold">{uploading ? "Uploading…" : "Replace image"}<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploading} onChange={(event) => void upload(event.target.files?.[0])} className="hidden" /></label><Button type="button" variant="danger" onClick={() => setPendingDelete(selected)}>Remove image</Button></div></>}</section></div> : null}
     {replacementUpload ? <ConfirmDialog open title="Replace this image?" description="Replacing an image changes the CMS reference. The uploaded original will remain in storage." confirmLabel="Replace image" onCancel={() => setReplacementUpload(null)} onConfirm={() => { const change = replacementUpload; setReplacementUpload(null); if (photos.filter((photo) => photo.url === change.photo.url).length > 1) setPendingChange(change); else void savePhoto(change.photo, { url: change.url }); }} /> : null}
     {pendingDelete ? <ConfirmDialog open title="Remove this photo?" description="This removes the photo reference from the CMS. It does not delete the uploaded file from storage." confirmLabel="Remove photo" onCancel={() => setPendingDelete(null)} onConfirm={() => { const photo = pendingDelete; setPendingDelete(null); void savePhoto(photo, { remove: true }); }} /> : null}
@@ -381,10 +391,12 @@ function buildSearchHits(data: DashboardData, query: string): SearchHit[] {
   data.subscribers.forEach((item) => add({ type: "Subscribers", title: item.email, text: `Subscriber · ${item.status ?? "active"}`, href: "/admin/subscribers", key: item.id }, `${item.email} ${item.status ?? "active"}`));
   for (const section of data.sections) {
     const flat = flattenContent(section.content);
-    for (const photo of [...getSectionPhotos(section), ...getStaticPhotos().filter((item) => item.sectionKey === section.section_key)]) {
+    const galleryItems = Array.isArray(section.content.items) ? section.content.items : [];
+    const galleryFallbacks = section.section_key === "gallery_content" && !galleryItems.length ? PUBLIC_GALLERY_FALLBACKS.map((item, index): PhotoRef => ({ key: `gallery-fallback:${index}`, page: "Gallery", section: `Gallery · ${item.category}`, url: item.src, alt: item.alt, caption: item.alt, locked: false, path: ["items", String(index), "src"], sectionKey: "gallery_content" })) : [];
+    for (const photo of [...getSectionPhotos(section), ...getStaticPhotos().filter((item) => item.sectionKey === section.section_key), ...galleryFallbacks]) {
       const page = photo.page;
       const photoPageSlug = page === "Gallery" ? "gallery" : page.toLowerCase();
-      add({ type: "Photos", title: photo.alt || photo.caption || photo.section, text: `${photo.section} · ${photo.alt || photo.caption || photo.url}`, href: `/admin/gallery/${photoPageSlug}?photo=${encodeURIComponent(photo.key)}`, locked: photo.locked, key: `photo-${photo.key}` }, `${photo.alt} ${photo.caption} ${photo.section} ${page} ${photo.url}`);
+      add({ type: "Photos", title: photo.alt || photo.caption || photo.section, text: `${photo.section} · ${photo.alt || photo.caption || photo.url}`, href: `/admin/gallery?page=${photoPageSlug}&photo=${encodeURIComponent(photo.key)}`, locked: photo.locked, key: `photo-${photo.key}` }, `${photo.alt} ${photo.caption} ${photo.section} ${page} ${photo.url}`);
     }
     const isService = section.section_key.startsWith("services") || section.section_key === "home_services";
     const isTestimony = section.section_key.includes("testimonial") || section.section_key === "about_trust";
@@ -433,10 +445,28 @@ function sectionPage(key: string): string {
   return "Other";
 }
 
+function sharedLocationPages(photo: PhotoRef): string[] {
+  if (photo.page !== "Shared") return [photo.page];
+  if (/brand|logo/i.test(photo.section)) return ["Navbar", "Footer", "Home", "About", "Services", "Gallery page", "Quote", "Contact", "Credits"];
+  if (/header|nav/i.test(photo.section)) return ["Navbar", "Home", "About", "Services", "Gallery page", "Quote", "Contact", "Credits"];
+  return ["Footer", "Home", "About", "Services", "Gallery page", "Quote", "Contact", "Credits"];
+}
+
+function usageLocations(photos: PhotoRef[]): string {
+  const places = photos.flatMap((photo) => photo.page === "Shared" ? sharedLocationPages(photo).map((place) => `${place} (${photo.section})`) : [`${photo.page} (${photo.section})`]);
+  return [...new Set(places)].join(", ");
+}
+
 function getStaticPhotos(): PhotoRef[] {
   const staticRefs: PhotoRef[] = [
     { key: "about:STORY_CREW_IMAGE", page: "About", section: "About story", url: "/images/IMG_20251220_105405.jpg", alt: "Shalom Logistics crew preparing a residential move", caption: "Story crew image", locked: true, path: [], sectionKey: "about_story" },
+    { key: "about:section-image", page: "About", section: "About story", url: "/images/IMG_20251220_105405.jpg", alt: "Shalom Logistics crew preparing a residential move", caption: "About story image", locked: true, path: [], sectionKey: "about_story" },
     ...["residential-moving", "commercial-moving", "scope-and-distance", "specialized-logistics", "cleaning-services"].map((slug) => ({ key: `services:${slug}`, page: "Services", section: "Service categories", url: `/images/slots/svc-${slug === "residential-moving" ? "residential" : slug === "commercial-moving" ? "commercial" : slug === "scope-and-distance" ? "scope" : slug === "specialized-logistics" ? "specialized" : "cleaning"}.webp`, alt: `${humanize(slug)} service`, caption: `${humanize(slug)} image`, locked: true, path: [], sectionKey: "services_categories" })),
+    { key: "services:services-hero", page: "Services", section: "Hero", url: "/images/Services.jpg", alt: "Shalom Logistics moving and cleaning services", caption: "Services page hero image", locked: true, path: [], sectionKey: "services_hero" },
+    ...["/images/IMG_20251114_133226.jpg", "/images/IMG_20251204_115746.jpg"].map((url, index) => ({ key: `about:purpose:${index}`, page: "About", section: "Purpose slides", url, alt: "Shalom Logistics purpose slide image", caption: "Purpose slideshow image", locked: false, path: ["slides", String(index), "image"], sectionKey: "about_purpose" })),
+    ...["/images/slots/home-home-relocation.webp", "/images/slots/home-office-moves.webp", "/images/slots/home-goods-transport.webp", "/images/slots/home-cleaning.webp"].map((url, index) => ({ key: `quote:service:${index}`, page: "Quote", section: "Service options", url, alt: "Service option photo", caption: "Quote service option image", locked: true, path: [], sectionKey: "services_detail" })),
+    ...["/images/slots/home-home-relocation.webp", "/images/slots/home-office-moves.webp", "/images/slots/home-goods-transport.webp", "/images/slots/home-cleaning.webp"].map((url, index) => ({ key: `services:service-detail:${index}`, page: "Services", section: "Service detail cards", url, alt: "Service detail photo", caption: "Service detail image", locked: true, path: [], sectionKey: "services_detail" })),
+    { key: "quote:slot", page: "Quote", section: "Service selection", url: "/images/slots/home-home-relocation.webp", alt: "Home relocation service", caption: "Quote service selection", locked: true, path: [], sectionKey: "quote_content" },
   ];
   return staticRefs;
 }

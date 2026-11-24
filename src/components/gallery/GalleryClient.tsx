@@ -8,7 +8,7 @@ type GalleryItem = { src: string; alt: string; category: string; type?: "image" 
 type GalleryContent = { heading: string; intro: string; categories: string[]; items: GalleryItem[] };
 const DEFAULT_CATEGORIES = ["Home Moving", "Office Moving", "Transport & Logistics", "Cleaning", "Other Services"];
 
-const FALLBACK_ITEMS: GalleryItem[] = [
+export const FALLBACK_ITEMS: GalleryItem[] = [
   { src: "/images/IMG_20251220_105405.jpg", alt: "Shalom Logistics crew preparing a household move", category: "Home Moving" },
   { src: "/images/IMG_20251220_105328.jpg", alt: "Moving crew and truck ready for a journey", category: "Transport & Logistics" },
   { src: "/images/IMG_20251220_105330.jpg", alt: "Shalom Logistics vehicle prepared for specialist delivery", category: "Transport & Logistics" },
