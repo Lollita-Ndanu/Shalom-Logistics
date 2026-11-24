@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Navbar from "@/components/layout/Navbar";
-import FloatingWhatsApp from "@/components/layout/FloatingWhatsApp";
+import PublicChrome from "@/components/layout/PublicChrome";
+import { NAV_LINKS } from "@/lib/constants";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -44,9 +44,8 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
       <body className="min-h-screen flex flex-col font-sans antialiased text-gray-900 bg-white">
-          <Navbar />
+          <PublicChrome navLinks={NAV_LINKS} quoteLabel="Get a Quote" quoteHref="/quote" logoUrl="/images/SHALOM.png" companyName="Shalom Logistics" phone1="+254 751 794 728" phone2="+254 745 980 198" />
           <main className="flex-1">{children}</main>
-          <FloatingWhatsApp />
       </body>
     </html>
   );

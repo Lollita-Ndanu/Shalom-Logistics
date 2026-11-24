@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import Image from "next/image";
+import { LockKeyhole } from "lucide-react";
 
 type Section = { section_key: string; label: string; is_visible: boolean; content: Record<string, unknown>; updated_at?: string };
 type Quote = Record<string, unknown> & { id: string; created_at: string; full_name: string; phone: string; email?: string; move_type: string; pickup_location: string; dropoff_location: string; preferred_date?: string; notes?: string; status: string };
@@ -64,22 +65,30 @@ export default function AdminDashboard({ ownerEmail, initialData, signOut }: { o
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
-      <header className="border-b border-emerald-950/15 bg-[#0a5c36] text-white">
+    <main className="min-h-screen bg-[var(--admin-page)] text-[var(--admin-ink)]">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col bg-[var(--admin-sidebar)] p-6 text-white lg:flex">
+        <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--admin-gold-light)]">Shalom Logistics</p><p className="mt-1 text-2xl font-bold">Admin Panel</p></div>
+        <nav className="mt-10 flex flex-col gap-2" aria-label="Admin sections">
+          {TABS.map((item) => <button key={item} type="button" onClick={() => setTab(item)} className={`rounded-lg px-4 py-3 text-left text-sm font-semibold transition ${tab === item ? "bg-[var(--admin-green)] text-white" : "text-white/75 hover:bg-white/10 hover:text-white"}`}>{item}</button>)}
+        </nav>
+      </aside>
+      <div className="lg:pl-64">
+      <header className="border-b border-[var(--admin-green-dark)] bg-[var(--admin-green)] text-white">
         <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-4 px-4 py-5 sm:px-8">
-          <div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200">Shalom Logistics</p><h1 className="mt-1 text-2xl font-bold">Owner Dashboard</h1><p className="mt-1 text-sm text-white/70">Signed in as {ownerEmail}</p></div>
+          <div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/80">Shalom Logistics</p><h1 className="mt-1 text-2xl font-bold">Admin Panel</h1><p className="mt-1 text-sm text-white/85">Signed in as {ownerEmail}</p></div>
           <form action={signOut}><button className="rounded-lg border border-white/30 px-4 py-2 text-sm font-semibold hover:bg-white/10">Sign out</button></form>
         </div>
       </header>
       <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-8">
-        <nav className="flex gap-2 overflow-x-auto border-b border-slate-200 pb-3" aria-label="Admin sections">
-          {TABS.map((item) => <button key={item} type="button" onClick={() => setTab(item)} className={`shrink-0 rounded-lg px-4 py-2 text-sm font-semibold ${tab === item ? "bg-[#0a5c36] text-white" : "bg-white text-slate-600 hover:bg-slate-200"}`}>{item}</button>)}
+        <nav className="flex gap-2 overflow-x-auto border-b border-[var(--admin-border)] pb-3 lg:hidden" aria-label="Admin sections">
+          {TABS.map((item) => <button key={item} type="button" onClick={() => setTab(item)} className={`shrink-0 rounded-lg px-4 py-2 text-sm font-semibold ${tab === item ? "bg-[var(--admin-green)] text-white" : "bg-white text-[var(--admin-muted)] hover:bg-slate-100"}`}>{item}</button>)}
         </nav>
         {notice ? <p role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{notice}</p> : null}
         {(tab === "Overview" || tab === "Quotes") ? <section className="mt-6 space-y-6"><div className="grid gap-4 sm:grid-cols-3"><Metric label="New Quotes" value={quotesNew} /><Metric label="Unread Messages" value={unreadMessages} /><Metric label="Active Subscribers" value={activeSubscribers} /></div>{tab === "Overview" ? <Panel title="Recent Quote Requests"><QuoteTable quotes={data.quotes.slice(0, 6)} busy={busy} onMutate={mutate} /></Panel> : <Panel title="Quote Requests"><QuoteTable quotes={data.quotes} busy={busy} onMutate={mutate} /></Panel>}{tab === "Overview" ? <Panel title="Recent Contact Messages"><MessageList messages={data.messages.slice(0, 5)} busy={busy} onMutate={mutate} /></Panel> : null}</section> : null}
         {tab === "Messages" ? <Panel className="mt-6" title="Contact Messages"><MessageList messages={data.messages} busy={busy} onMutate={mutate} /></Panel> : null}
         {tab === "Subscribers" ? <Panel className="mt-6" title="Subscribers"><div className="mb-4 flex justify-end"><button type="button" onClick={exportSubscribers} className="rounded-lg bg-[#0a5c36] px-4 py-2 text-sm font-semibold text-white">Export CSV</button></div><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b text-slate-500"><th className="p-3">Email</th><th className="p-3">Status</th><th className="p-3">Joined</th><th className="p-3">Actions</th></tr></thead><tbody>{data.subscribers.map((item) => <tr key={item.id} className="border-b border-slate-100"><td className="p-3 font-medium">{item.email}</td><td className="p-3"><span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">{item.status ?? "active"}</span></td><td className="p-3">{new Date(item.created_at).toLocaleDateString()}</td><td className="p-3"><button disabled={busy === item.id} onClick={() => mutate({ action: "delete", table: "subscribers", id: item.id })} className="text-red-700 hover:underline">Delete</button></td></tr>)}</tbody></table></div></Panel> : null}
         {tab === "Site Content" ? <div className="mt-6 space-y-8">{groupedSections.map(([group, sections]) => <section key={group}><h2 className="mb-3 text-lg font-bold text-[#0a5c36]">{group}</h2><div className="grid gap-4 xl:grid-cols-2">{sections.map((section) => <SectionEditor key={section.section_key} section={section} busy={busy === section.section_key} onSave={(values) => mutate({ action: "save-section", sectionKey: section.section_key, ...values })} />)}</div></section>)}</div> : null}
+      </div>
       </div>
     </main>
   );
@@ -98,7 +107,6 @@ function SectionEditor({ section, busy, onSave }: { section: Section; busy: bool
   const [label, setLabel] = useState(section.label);
   const [isVisible, setIsVisible] = useState(section.is_visible);
   const [content, setContent] = useState(section.content ?? {});
-  const [saved, setSaved] = useState(false);
 
   function update(path: string[], value: unknown) {
     setContent((current) => {
@@ -111,19 +119,48 @@ function SectionEditor({ section, busy, onSave }: { section: Section; busy: bool
       target[path[path.length - 1]] = value;
       return result;
     });
-    setSaved(false);
   }
 
   function save(event: FormEvent) {
     event.preventDefault();
-    onSave({ label, isVisible, content });
-    setSaved(true);
+    onSave({ label, isVisible: HERO_SECTIONS.has(section.section_key) ? section.is_visible : isVisible, content: preserveLockedFields(section.section_key, section.content ?? {}, content) });
   }
 
-  return <form onSubmit={save} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3"><div><p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{section.section_key}</p><input value={label} onChange={(event) => setLabel(event.target.value)} className="mt-1 w-full border-0 p-0 text-lg font-bold text-slate-900 focus:ring-0" aria-label="Section display name" /></div><label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={isVisible} onChange={(event) => setIsVisible(event.target.checked)} className="h-4 w-4 accent-[#0a5c36]" />Visible on site</label></div><div className="mt-4 space-y-3">{section.section_key === "gallery_content" ? <GalleryContentEditor content={content} update={update} /> : <ObjectEditor value={content} path={[]} update={update} sectionKey={section.section_key} />}</div><div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4"><span className="text-sm text-emerald-800">{saved ? "Saved" : ""}</span><button disabled={busy} className="rounded-lg bg-[#0a5c36] px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-50">{busy ? "Saving…" : "Save Changes"}</button></div></form>;
+  return <form onSubmit={save} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3"><div><p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{section.section_key}</p>{HERO_SECTIONS.has(section.section_key) ? <div className="mt-2"><LockedField /><p className="mt-2 text-sm font-semibold">Hero content is developer-managed.</p></div> : <input value={label} onChange={(event) => setLabel(event.target.value)} className="mt-1 w-full border-0 p-0 text-lg font-bold text-slate-900 focus:ring-0" aria-label="Section display name" />}</div>{HERO_SECTIONS.has(section.section_key) ? <LockedField /> : <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={isVisible} onChange={(event) => setIsVisible(event.target.checked)} className="h-4 w-4 accent-[var(--admin-green)]" />Visible on site</label>}</div><div className="mt-4 space-y-3">{section.section_key === "gallery_content" ? <GalleryContentEditor content={content} update={update} /> : <ObjectEditor value={content} path={[]} update={update} sectionKey={section.section_key} />}</div><div className="mt-5 flex justify-end border-t border-slate-100 pt-4"><button disabled={busy} className="rounded-lg bg-[var(--admin-green)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--admin-green-dark)] disabled:opacity-50">{busy ? "Saving…" : "Save Changes"}</button></div></form>;
+}
+
+const LOCKED_KEYS = new Set(["mapLocations", "destinations", "mapTitle", "mapHeading", "mapBody"]);
+const HERO_SECTIONS = new Set(["hero", "services_hero"]);
+
+function isLockedField(sectionKey: string, path: string[]) {
+  const key = path.at(-1) ?? "";
+  if (HERO_SECTIONS.has(sectionKey)) return true;
+  if (LOCKED_KEYS.has(key) || sectionKey === "contact_content" && key === "whatsapp") return true;
+  if (/href$/i.test(key) && !path.includes("socialLinks")) return true;
+  return false;
+}
+
+function preserveLockedFields(sectionKey: string, original: Record<string, unknown>, edited: Record<string, unknown>) {
+  const result = structuredClone(edited);
+  const copyLocked = (source: unknown, target: unknown, path: string[]) => {
+    if (!source || typeof source !== "object" || Array.isArray(source) || !target || typeof target !== "object" || Array.isArray(target)) return;
+    for (const [key, value] of Object.entries(source as Record<string, unknown>)) {
+      const nextPath = [...path, key];
+      if (isLockedField(sectionKey, nextPath)) (target as Record<string, unknown>)[key] = structuredClone(value);
+      else copyLocked(value, (target as Record<string, unknown>)[key], nextPath);
+    }
+  };
+  if (HERO_SECTIONS.has(sectionKey)) return structuredClone(original);
+  copyLocked(original, result, []);
+  return result;
+}
+
+function LockedField() {
+  return <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-700"><LockKeyhole aria-hidden="true" className="h-4 w-4 shrink-0" /><span>Managed by developer</span></div>;
 }
 
 function ObjectEditor({ value, path, update, sectionKey }: { value: unknown; path: string[]; update: (path: string[], value: unknown) => void; sectionKey?: string }) {
+  if (sectionKey && isLockedField(sectionKey, path)) return <><LockedField /><p className="break-all text-sm text-slate-600">{formatLockedValue(value)}</p></>;
   if (Array.isArray(value)) return <ArrayEditor value={value} path={path} update={update} sectionKey={sectionKey} />;
   if (value && typeof value === "object") return <div className="space-y-3">{Object.entries(value as Record<string, unknown>).filter(([key]) => !(sectionKey === "about_story" && key === "mapLocations")).map(([key, child]) => <div key={key} className="rounded-lg bg-slate-50 p-3"><p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{humanize(key)}</p><ObjectEditor value={child} path={[...path, key]} update={update} sectionKey={sectionKey} /></div>)}</div>;
   if (typeof value === "boolean") return <input aria-label={path.join(" ")} type="checkbox" checked={value} onChange={(event) => update(path, event.target.checked)} className="h-4 w-4 accent-[#0a5c36]" />;
@@ -131,6 +168,11 @@ function ObjectEditor({ value, path, update, sectionKey }: { value: unknown; pat
   const mediaField = /image|logo|poster|video|media|banner|src|url/i.test(path.at(-1) ?? "");
   if (mediaField) return <MediaField value={text} onChange={(url) => update(path, url)} />;
   return <input aria-label={path.join(" ")} value={text} onChange={(event) => update(path, event.target.value)} className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm" />;
+}
+
+function formatLockedValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  try { return JSON.stringify(value); } catch { return String(value ?? ""); }
 }
 
 function MediaField({ value, onChange }: { value: string; onChange: (url: string) => void }) {
