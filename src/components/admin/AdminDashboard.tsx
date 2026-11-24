@@ -196,6 +196,7 @@ function DashboardHome({ displayName, date, data, loading, error, quotesNew, unr
 }
 
 function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: Section[]; sectionsError: string; busy: string; onMutate: (payload: Record<string, unknown>) => Promise<void> }) {
+  const [gallerySections, setGallerySections] = useState(sections);
   const router = useRouter();
   const gallerySearchParams = useSearchParams();
   const [filterPageOverride, setFilterPageOverride] = useState<string | null>(null);
@@ -204,20 +205,23 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
   const [missingAlt, setMissingAlt] = useState(false);
   const [selectedOverride, setSelectedOverride] = useState<PhotoRef | null>(null);
   const selectedPhotoId = gallerySearchParams.get("photo");
-  const [selectedAddSection, setSelectedAddSection] = useState("gallery_content");
   const [altText, setAltText] = useState("");
   const [pendingDelete, setPendingDelete] = useState<PhotoRef | null>(null);
   const [pendingAltSave, setPendingAltSave] = useState<{ photo: PhotoRef; alt: string } | null>(null);
   const [pendingChange, setPendingChange] = useState<{ photo: PhotoRef; url?: string } | null>(null);
   const [replacementUpload, setReplacementUpload] = useState<{ photo: PhotoRef; url: string } | null>(null);
-  const [newPhotoAlt, setNewPhotoAlt] = useState("");
+  const [newPhotoFile, setNewPhotoFile] = useState<File | null>(null);
+  const [newPhotoStatus, setNewPhotoStatus] = useState("");
+  const [newPhotoError, setNewPhotoError] = useState("");
+  const newPhotoInput = useRef<HTMLInputElement>(null);
   const [changeProgress, setChangeProgress] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
-  const photos = sections.flatMap((section) => [...getSectionPhotos(section), ...getStaticPhotos().filter((photo) => photo.sectionKey === section.section_key)]);
-  const gallerySection = sections.find((section) => section.section_key === "gallery_content");
+  const activeSections = gallerySections;
+  const photos = activeSections.flatMap((section) => [...getSectionPhotos(section), ...getStaticPhotos().filter((photo) => photo.sectionKey === section.section_key)]);
+  const gallerySection = activeSections.find((section) => section.section_key === "gallery_content");
   const galleryContent = gallerySection?.content;
-  const galleryItems = galleryContent && Array.isArray(galleryContent.items) ? galleryContent.items : [];
+  const galleryItems: unknown[] = galleryContent && Array.isArray(galleryContent.items) ? galleryContent.items : [];
   const galleryFallbackPhotos = galleryItems.length ? [] : PUBLIC_GALLERY_FALLBACKS.map((item, index): PhotoRef => ({ key: `gallery-fallback:${index}`, page: "Gallery page", section: `Gallery · ${item.category}`, url: item.src, alt: item.alt, caption: item.alt, locked: false, path: ["items", String(index), "src"], sectionKey: "gallery_content" }));
   const galleryPublicPhotos = galleryItems.map((value, index): PhotoRef | null => {
     if (!value || typeof value !== "object") return null;
@@ -227,13 +231,20 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
   }).filter((photo): photo is PhotoRef => photo !== null);
   if (!galleryItems.length) photos.push(...galleryFallbackPhotos);
   else photos.push(...galleryPublicPhotos.filter((photo) => !photos.some((existing) => existing.url === photo.url && existing.page === "Gallery")));
+  photos.forEach((photo) => { if (photo.page === "Gallery") photo.page = "Gallery page"; });
+  const newPhotoPreview = useMemo(() => newPhotoFile ? URL.createObjectURL(newPhotoFile) : "", [newPhotoFile]);
+  useEffect(() => () => { if (newPhotoPreview) URL.revokeObjectURL(newPhotoPreview); }, [newPhotoPreview]);
   const selected = selectedOverride ?? (selectedPhotoId ? photos.find((photo) => photo.key === selectedPhotoId) ?? null : null);
   const setSelected = setSelectedOverride;
   const pageSelection = gallerySearchParams.get("page");
+  const addedUrl = gallerySearchParams.get("added");
+  const justUploadedUrl = newPhotoStatus.split("|")[1];
+  const anchorUrl = addedUrl || justUploadedUrl;
+  if (anchorUrl && !photos.some((photo) => photo.url === anchorUrl)) photos.unshift({ key: `gallery-upload:${anchorUrl}`, page: "Gallery page", section: "Gallery · Other Services", url: anchorUrl, alt: "Shalom Logistics gallery photo", caption: "Shalom Logistics gallery photo", locked: false, path: [], sectionKey: "gallery_content" });
   const effectivePage = filterPageOverride ?? (pageSelection ? PUBLIC_PAGE_TABS.find((item) => item.slug === pageSelection)?.label ?? "All pages" : "All pages");
   const filtered = photos.filter((photo) => (effectivePage === "All pages" || photo.page === effectivePage || photo.page === "Shared") && (!sharedOnly || photos.filter((other) => other.url === photo.url).length > 1) && (!missingAlt || !photo.alt.trim()) && (!query || `${photo.alt} ${photo.caption} ${photo.page} ${photo.section} ${photo.url}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())));
   async function savePhoto(photo: PhotoRef, change: { url?: string; alt?: string; remove?: boolean }, applyEverywhere = false) {
-    const section = sections.find((item) => item.section_key === photo.sectionKey);
+    const section = activeSections.find((item) => item.section_key === photo.sectionKey);
     if (!section || photo.locked) return;
     const content = structuredClone(section.content);
     if (photo.key.startsWith("gallery-fallback:") && !galleryItems.length) {
@@ -294,7 +305,7 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
 
   async function moveGalleryPhoto(photo: PhotoRef, offset: -1 | 1) {
     if (photo.locked || photo.sectionKey !== "gallery_content") return;
-    const section = sections.find((item) => item.section_key === photo.sectionKey);
+    const section = activeSections.find((item) => item.section_key === photo.sectionKey);
     if (!section || photo.path.length < 2) return;
     const arrayPath = photo.path.slice(0, -1);
     let array: unknown = section.content;
@@ -315,7 +326,7 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
     const duplicates = photos.filter((item) => item.url === change.photo.url && item.key !== change.photo.key);
     for (const duplicate of duplicates) {
       if (duplicate.locked) { setUploadError(`Could not update locked photo in ${duplicate.section}.`); continue; }
-      const otherSection = sections.find((item) => item.section_key === duplicate.sectionKey);
+      const otherSection = activeSections.find((item) => item.section_key === duplicate.sectionKey);
       if (!otherSection) continue;
       setChangeProgress(`Updating ${otherSection.label}…`);
       const content = structuredClone(otherSection.content);
@@ -358,18 +369,87 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
     finally { setUploading(false); }
   }
 
+  function chooseNewPhoto(file?: File) {
+    setNewPhotoError("");
+    setNewPhotoStatus("");
+    if (!file) return;
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+    if (!allowedTypes.includes(file.type)) {
+      setNewPhotoFile(null);
+      if (newPhotoInput.current) newPhotoInput.current.value = "";
+      setNewPhotoError("Choose a JPG, PNG, WebP, or AVIF image.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setNewPhotoFile(null);
+      setNewPhotoError("The image must be 10 MB or smaller.");
+      return;
+    }
+    setNewPhotoFile(file);
+  }
+
+  async function uploadNewPhoto() {
+    if (!newPhotoFile || uploading) return;
+    setUploading(true);
+    setNewPhotoError("");
+    setNewPhotoStatus("Preparing upload…");
+    try {
+      const response = await fetch("/api/upload-url", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contentType: newPhotoFile.type, fileSize: newPhotoFile.size }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Could not prepare upload.");
+      setNewPhotoStatus("Uploading photo…");
+      const uploaded = await fetch(result.uploadUrl, { method: "PUT", headers: { "Content-Type": newPhotoFile.type }, body: newPhotoFile });
+      if (!uploaded.ok) throw new Error("Upload failed. You can retry this file.");
+      const section = activeSections.find((item) => item.section_key === "gallery_content");
+      if (!section) throw new Error("Gallery Content is unavailable. You can retry this file.");
+      const content = structuredClone(section.content);
+      const existing: unknown[] = Array.isArray(content.items) && content.items.length ? content.items : PUBLIC_GALLERY_FALLBACKS.map((item) => ({ ...item }));
+      const newItem = { src: result.publicUrl, alt: "Shalom Logistics gallery photo", category: "Other Services", type: "image", isVisible: true };
+      const nextItems = [...existing, newItem];
+      content.items = nextItems;
+      await onMutate({ action: "save-section", sectionKey: section.section_key, label: section.label, isVisible: section.is_visible, content });
+      const uploadedPhoto: PhotoRef = { key: `gallery-upload:${result.key ?? result.publicUrl}`, page: "Gallery page", section: "Gallery · Other Services", url: result.publicUrl, alt: "Shalom Logistics gallery photo", caption: "Shalom Logistics gallery photo", locked: false, path: ["items", String(nextItems.length - 1), "src"], sectionKey: "gallery_content" };
+      photos.unshift(uploadedPhoto);
+      setGallerySections((current) => current.map((item) => item.section_key === section.section_key ? { ...item, content } : item));
+      setGallerySections((current) => current.map((item) => item.section_key === section.section_key ? { ...item, content } : item));
+      setNewPhotoStatus(`Photo added to Gallery Content|${result.publicUrl}`);
+      setNewPhotoFile(null);
+      if (newPhotoInput.current) newPhotoInput.current.value = "";
+      setFilterPageOverride("Gallery page");
+      router.replace("/admin/gallery?page=gallery");
+    } catch (error) {
+      setNewPhotoError(error instanceof Error ? error.message : "Upload failed. You can retry this file.");
+      setNewPhotoStatus("");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function clearNewPhoto() {
+    if (uploading) return;
+    setNewPhotoFile(null);
+    setNewPhotoError("");
+    setNewPhotoStatus("");
+    if (newPhotoInput.current) newPhotoInput.current.value = "";
+  }
+
   if (sectionsError) return <ErrorState title="Could not load photos" description={sectionsError} />;
   if (busy === "loading") return <LoadingState label="Loading photos…" />;
   return <section className="mt-2 space-y-5">
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"><Input aria-label="Search photos" placeholder="Search alt text, page, section…" value={query} onChange={(event) => setQuery(event.target.value)} /><select aria-label="Filter by page" value={effectivePage} onChange={(event) => { setFilterPageOverride(event.target.value); const slug = PUBLIC_PAGE_TABS.find((tab) => tab.label === event.target.value)?.slug ?? "all"; router.replace(slug === "all" ? "/admin/gallery" : `/admin/gallery?page=${slug}`); }} className="min-h-10 rounded-lg border border-[var(--admin-border)] bg-white px-3 text-sm">{PUBLIC_PAGE_TABS.map((tab) => <option key={tab.slug} value={tab.label}>{tab.label}</option>)}</select><div className="flex flex-wrap items-center gap-4 text-sm"><label className="flex items-center gap-2"><input type="checkbox" checked={sharedOnly} onChange={(event) => setSharedOnly(event.target.checked)} />Shared only</label><label className="flex items-center gap-2"><input type="checkbox" checked={missingAlt} onChange={(event) => setMissingAlt(event.target.checked)} />Missing alt text</label></div></div>
     {uploadError ? <ErrorState title="Photo action failed" description={uploadError} /> : null}{changeProgress ? <Toast>{changeProgress}</Toast> : null}
-    {filtered.length ? <div className="space-y-6">{[...new Set(filtered.map((photo) => photo.section))].map((sectionName) => <section key={sectionName}><h2 className="mb-3 text-lg font-bold">{sectionName}</h2><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.filter((photo) => photo.section === sectionName).map((photo) => { const uses = photos.filter((item) => item.url === photo.url); const usage = usageLocations(uses); const sharedPages = [...new Set(uses.flatMap((item) => item.page === "Shared" ? sharedLocationPages(item) : [item.page]))]; return <article key={photo.key} className="overflow-hidden rounded-xl border border-[var(--admin-border)] bg-white shadow-sm"><button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="relative block aspect-[16/10] w-full bg-slate-100 text-left"><Image src={photo.url} alt={photo.alt} fill unoptimized sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw" className="object-cover" />{photo.locked ? <span className="absolute left-2 top-2"><Badge><LockKeyhole size={12} className="mr-1" />Managed by developer</Badge></span> : null}</button><div className="space-y-2 p-4"><p className="font-bold">{photo.section} · {photo.page}</p>{sharedPages.length > 1 ? <span title={`Appears on: ${usage}`}><Badge variant="gold">Shared: appears on {sharedPages.length} pages · {sharedPages.join(", ")}</Badge></span> : null}<p className="text-sm text-[var(--admin-muted)]">{photo.alt || photo.caption || "No alt text"}</p><p className="text-xs text-[var(--admin-muted)]">Used on: {usage}</p><div className="flex items-center justify-between"><button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="text-sm font-semibold text-[var(--admin-green-dark)] underline">View details</button>{photo.sectionKey === "gallery_content" && !photo.locked ? <span className="flex gap-2"><button type="button" aria-label="Move photo up" onClick={() => void moveGalleryPhoto(photo, -1)}>↑</button><button type="button" aria-label="Move photo down" onClick={() => void moveGalleryPhoto(photo, 1)}>↓</button></span> : null}</div></div></article>; })}</div></section>)}</div> : <EmptyState title={effectivePage === "All pages" ? "No photos found" : `No photos on ${effectivePage}`} description="Try another page or adjust the current filters." />}
+    {filtered.length ? <div className="space-y-6">{[...new Set(filtered.map((photo) => photo.section))].map((sectionName) => <section key={sectionName}><h2 className="mb-3 text-lg font-bold">{sectionName}</h2><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.filter((photo) => photo.section === sectionName).map((photo) => { const uses = photos.filter((item) => item.url === photo.url); const usage = usageLocations(uses); const sharedPages = [...new Set(uses.flatMap((item) => item.page === "Shared" ? sharedLocationPages(item) : [item.page]))]; const cardId = photo.key.startsWith("gallery-upload:") ? "uploaded-gallery-photo" : undefined; return <article id={cardId} key={photo.key} className="overflow-hidden rounded-xl border border-[var(--admin-border)] bg-white shadow-sm"><button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="relative block aspect-[16/10] w-full bg-slate-100 text-left"><Image src={photo.url} alt={photo.alt} fill unoptimized sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw" className="object-cover" />{photo.locked ? <span className="absolute left-2 top-2"><Badge><LockKeyhole size={12} className="mr-1" />Managed by developer</Badge></span> : null}</button><div className="space-y-2 p-4"><p className="font-bold">{photo.section} · {photo.page}</p>{sharedPages.length > 1 ? <span title={`Appears on: ${usage}`}><Badge variant="gold">Shared: appears on {sharedPages.length} pages · {sharedPages.join(", ")}</Badge></span> : null}<p className="text-sm text-[var(--admin-muted)]">{photo.alt || photo.caption || "No alt text"}</p><p className="text-xs text-[var(--admin-muted)]">Used on: {usage}</p><div className="flex items-center justify-between"><button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="text-sm font-semibold text-[var(--admin-green-dark)] underline">View details</button>{photo.sectionKey === "gallery_content" && !photo.locked ? <span className="flex gap-2"><button type="button" aria-label="Move photo up" onClick={() => void moveGalleryPhoto(photo, -1)}>↑</button><button type="button" aria-label="Move photo down" onClick={() => void moveGalleryPhoto(photo, 1)}>↓</button></span> : null}</div></div></article>; })}</div></section>)}</div> : <EmptyState title={effectivePage === "All pages" ? "No photos found" : `No photos on ${effectivePage}`} description="Try another page or adjust the current filters." />}
     {selected ? <div className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto bg-black/60 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}><section role="dialog" aria-modal="true" aria-labelledby="photo-dialog-title" className="w-full max-w-3xl rounded-2xl bg-white p-5 shadow-2xl"><div className="flex items-center justify-between"><h2 id="photo-dialog-title" className="text-xl font-bold">Photo details</h2><button type="button" onClick={() => setSelected(null)} aria-label="Close photo details">×</button></div><div className="relative mt-4 h-[50vh] w-full"><Image src={selected.url} alt={selected.alt} fill unoptimized sizes="(max-width: 768px) 100vw, 768px" className="rounded-xl bg-slate-100 object-contain" /></div><p className="mt-3 break-all text-xs text-[var(--admin-muted)]">{selected.url}</p><p className="mt-2 text-sm">Used in: {photos.filter((photo) => photo.url === selected.url).map((photo) => `${photo.page} / ${photo.section}`).join("; ")}</p>{selected.locked ? <div className="mt-4"><LockedField /></div> : <><label className="mt-4 block text-sm font-semibold">Alt text / caption<input value={altText} onChange={(event) => setAltText(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><div className="mt-4 flex flex-wrap gap-2"><Button type="button" onClick={() => { if (photos.filter((photo) => photo.url === selected.url).length > 1) setPendingAltSave({ photo: selected, alt: altText }); else void savePhoto(selected, { alt: altText }); }}>Save alt text</Button><label className="inline-flex cursor-pointer items-center rounded-lg border border-[var(--admin-border)] px-4 py-2 text-sm font-semibold">{uploading ? "Uploading…" : "Replace image"}<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploading} onChange={(event) => void upload(event.target.files?.[0])} className="hidden" /></label><Button type="button" variant="danger" onClick={() => setPendingDelete(selected)}>Remove image</Button></div></>}</section></div> : null}
     {replacementUpload ? <ConfirmDialog open title="Replace this image?" description="Replacing an image changes the CMS reference. The uploaded original will remain in storage." confirmLabel="Replace image" onCancel={() => setReplacementUpload(null)} onConfirm={() => { const change = replacementUpload; setReplacementUpload(null); if (photos.filter((photo) => photo.url === change.photo.url).length > 1) setPendingChange(change); else void savePhoto(change.photo, { url: change.url }); }} /> : null}
     {pendingDelete ? <ConfirmDialog open title="Remove this photo?" description="This removes the photo reference from the CMS. It does not delete the uploaded file from storage." confirmLabel="Remove photo" onCancel={() => setPendingDelete(null)} onConfirm={() => { const photo = pendingDelete; setPendingDelete(null); void savePhoto(photo, { remove: true }); }} /> : null}
     {pendingAltSave ? <ConfirmDialog open title="Apply shared photo change?" description={`This photo also appears on: ${photos.filter((photo) => photo.url === pendingAltSave.photo.url).map((photo) => photo.page).filter((page, index, list) => list.indexOf(page) === index).join(", ")}. Apply this change there too?`} confirmLabel="Yes, apply everywhere" cancelLabel="No, only this page" onCancel={() => { const change = pendingAltSave; setPendingAltSave(null); void savePhoto(change.photo, { alt: change.alt }); }} onConfirm={() => { const change = pendingAltSave; setPendingAltSave(null); void applySharedChange(change); }} /> : null}
     {pendingChange ? <ConfirmDialog open title="Apply shared photo change?" description={`This photo also appears on: ${photos.filter((photo) => photo.url === pendingChange.photo.url).map((photo) => photo.page).filter((page, index, list) => list.indexOf(page) === index).join(", ")}. Apply this change there too?`} confirmLabel="Yes, apply everywhere" cancelLabel="No, only this page" onCancel={() => { const change = pendingChange; setPendingChange(null); if (change.url) void savePhoto(change.photo, { url: change.url }); }} onConfirm={() => { const change = pendingChange; setPendingChange(null); void applySharedChange(change); }} /> : null}
-    <section className="rounded-xl border border-[var(--admin-border)] bg-white p-4"><h2 className="font-bold">Add photo</h2><p className="mt-1 text-sm text-[var(--admin-muted)]">Adding photos is supported in the Gallery section via the existing upload service.</p><div className="mt-3 flex flex-wrap gap-3"><select aria-label="Add photo to section" value={selectedAddSection} onChange={(event) => setSelectedAddSection(event.target.value)} className="min-h-10 rounded-lg border border-[var(--admin-border)] bg-white px-3 text-sm">{sections.filter((section) => section.section_key === "gallery_content" || section.section_key.startsWith("home_") || section.section_key.startsWith("services") || section.section_key.startsWith("about_") || ["quote_content", "contact_content"].includes(section.section_key)).map((section) => <option key={section.section_key} value={section.section_key}>{section.label}</option>)}</select><input aria-label="New photo alt text" placeholder="Alt text" value={newPhotoAlt} onChange={(event) => setNewPhotoAlt(event.target.value)} className="min-h-10 rounded-lg border border-[var(--admin-border)] px-3 text-sm" /><label className="inline-flex cursor-pointer items-center rounded-lg bg-[var(--admin-green)] px-4 py-2 text-sm font-semibold text-white">{uploading ? "Uploading…" : "Upload photo"}<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploading} onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; const targetSection = sections.find((section) => section.section_key === selectedAddSection); if (!targetSection) return setUploadError("Selected section is unavailable."); if (["hero", "services_hero"].includes(selectedAddSection)) return setUploadError("Hero photos are managed by developer."); setUploading(true); setUploadError(""); try { const response = await fetch("/api/upload-url", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contentType: file.type, fileSize: file.size }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error ?? "Could not prepare upload."); const uploaded = await fetch(result.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file }); if (!uploaded.ok) throw new Error("Upload failed."); const content = structuredClone(targetSection.content); const items = Array.isArray(content.items) ? content.items : []; content.items = [...items, { src: result.publicUrl, alt: newPhotoAlt, category: "Other Services", type: "image", isVisible: true }]; await onMutate({ action: "save-section", sectionKey: targetSection.section_key, label: targetSection.label, isVisible: targetSection.is_visible, content }); setNewPhotoAlt(""); } catch (error) { setUploadError(error instanceof Error ? error.message : "Upload failed."); } finally { setUploading(false); } }} className="hidden" /></label></div></section>
+    <section className="rounded-2xl border border-[var(--admin-border)] bg-white p-5 shadow-sm sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Add photo to Gallery</h2><span className="mt-2 inline-flex rounded-full bg-[var(--admin-gold-light)] px-3 py-1 text-xs font-semibold text-[var(--admin-ink)]">Adding to: Gallery Content (shown on the public Gallery page)</span></div></div>
+      <input ref={newPhotoInput} type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploading} onChange={(event) => chooseNewPhoto(event.target.files?.[0])} className="sr-only" aria-label="Choose photo to add to Gallery" />
+      {!newPhotoFile ? <button type="button" disabled={uploading} onClick={() => newPhotoInput.current?.click()} onDragOver={(event) => { event.preventDefault(); event.currentTarget.classList.add("border-[var(--admin-gold)]", "bg-amber-50"); }} onDragLeave={(event) => { event.currentTarget.classList.remove("border-[var(--admin-gold)]", "bg-amber-50"); }} onDrop={(event) => { event.preventDefault(); event.currentTarget.classList.remove("border-[var(--admin-gold)]", "bg-amber-50"); chooseNewPhoto(event.dataTransfer.files?.[0]); }} className="mt-5 flex min-h-40 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--admin-green)] bg-emerald-50/40 px-5 py-8 text-center transition hover:border-[var(--admin-gold)] hover:bg-amber-50 disabled:opacity-50"><ImageIcon className="mb-2 text-[var(--admin-green)]" size={28} /><span className="font-semibold">Drag a photo here or click to choose</span><span className="mt-2 text-xs text-[var(--admin-muted)]">JPG, PNG, WebP, AVIF · Maximum size 10 MB</span></button> : <div className="mt-5 grid gap-5 rounded-xl border border-[var(--admin-border)] bg-slate-50 p-4 sm:grid-cols-[180px_1fr] sm:items-center"><div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-white"><Image src={newPhotoPreview} alt="Preview of selected Gallery photo" fill unoptimized className="object-contain" /></div><div className="min-w-0"><p className="truncate font-semibold">{newPhotoFile.name}</p><p className="mt-1 text-sm text-[var(--admin-muted)]">{(newPhotoFile.size / (1024 * 1024)).toFixed(2)} MB</p>{newPhotoStatus ? <p role="status" className="mt-3 text-sm font-semibold text-[var(--admin-green-dark)]">{newPhotoStatus.split("|")[0]}</p> : null}{newPhotoError ? <p role="alert" className="mt-3 text-sm font-semibold text-red-700">{newPhotoError}</p> : null}<div className="mt-4 flex flex-wrap gap-2"><Button type="button" disabled={!newPhotoFile || uploading} onClick={() => void uploadNewPhoto()}>{uploading ? "Uploading…" : "Upload photo"}</Button><Button type="button" variant="outline" disabled={uploading} onClick={clearNewPhoto}>Cancel / Remove</Button></div></div></div>}
+      {newPhotoStatus && !newPhotoFile ? <div className="mt-4 flex items-center gap-3 rounded-lg bg-emerald-50 p-3 text-sm text-[var(--admin-green-dark)]"><span role="status" className="font-semibold">{newPhotoStatus.split("|")[0]}</span><a href="#uploaded-gallery-photo" onClick={() => { setFilterPageOverride("Gallery page"); router.replace(`/admin/gallery?page=gallery&added=${encodeURIComponent(newPhotoStatus.split("|")[1] ?? "")}`); }} className="font-semibold underline">View photo</a></div> : null}
+      {newPhotoError && !newPhotoFile ? <div role="alert" className="mt-4 flex items-center gap-3 text-sm text-red-700"><span>{newPhotoError}</span><Button type="button" variant="outline" onClick={() => newPhotoInput.current?.click()}>Choose another photo</Button></div> : null}
+    </section>
   </section>;
 }
 
