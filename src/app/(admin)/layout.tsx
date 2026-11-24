@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import "./admin.css";
+import "../../app/globals.css";
+import "./admin/theme.css";
 
 export const metadata: Metadata = {
   title: "Admin Panel | Shalom Logistics",

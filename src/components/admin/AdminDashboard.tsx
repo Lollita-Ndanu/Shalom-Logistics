@@ -1,15 +1,25 @@
 "use client";
 
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import Image from "next/image";
-import { LockKeyhole } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { LockKeyhole, Menu, Search, X, ChevronDown, LayoutDashboard, Truck, Users, MessageSquare, Settings, Quote } from "lucide-react";
+import { Badge, Button, Card, EmptyState, Input, Table, Toast } from "@/components/admin/ui";
 
 type Section = { section_key: string; label: string; is_visible: boolean; content: Record<string, unknown>; updated_at?: string };
 type Quote = Record<string, unknown> & { id: string; created_at: string; full_name: string; phone: string; email?: string; move_type: string; pickup_location: string; dropoff_location: string; preferred_date?: string; notes?: string; status: string };
 type Message = Record<string, unknown> & { id: string; created_at: string; name: string; email: string; phone?: string; subject?: string; message: string; is_read: boolean };
 type Subscriber = Record<string, unknown> & { id: string; created_at: string; email: string; status?: string };
 type DashboardData = { quotes: Quote[]; messages: Message[]; subscribers: Subscriber[]; sections: Section[] };
-type AdminTab = "Overview" | "Quotes" | "Messages" | "Subscribers" | "Site Content";
+type AdminPage = "Dashboard" | "Quotes" | "Messages" | "Subscribers" | "Services" | "Testimonies" | "Site Content" | "Settings";
+
+const NAV_ITEMS: { label: AdminPage; href: string; icon: typeof LayoutDashboard }[] = [
+  { label: "Dashboard", href: "/admin", icon: LayoutDashboard }, { label: "Quotes", href: "/admin/quotes", icon: Quote },
+  { label: "Messages", href: "/admin/messages", icon: MessageSquare }, { label: "Subscribers", href: "/admin/subscribers", icon: Users },
+  { label: "Services", href: "/admin/services", icon: Truck }, { label: "Testimonies", href: "/admin/testimonies", icon: Quote },
+  { label: "Site Content", href: "/admin/site-content", icon: LayoutDashboard }, { label: "Settings", href: "/admin/settings", icon: Settings },
+];
 
 const GROUPS: Record<string, string> = {
   header: "Global & Navigation", footer: "Global & Navigation", global_brand: "Global & Navigation",
@@ -17,10 +27,10 @@ const GROUPS: Record<string, string> = {
   services: "Services", services_hero: "Services", services_popular: "Services", services_categories: "Services", services_detail: "Services", services_how_it_works: "Services", services_areas: "Services", services_cta: "Services",
   about_story: "About Us", about_purpose: "About Us", about_trust: "About Us", gallery_content: "Gallery", quote_content: "Quote Page", contact_content: "Contact Page", email_welcome: "Welcome Email",
 };
-const TABS: AdminTab[] = ["Overview", "Quotes", "Messages", "Subscribers", "Site Content"];
-
-export default function AdminDashboard({ ownerEmail, initialData, signOut }: { ownerEmail: string; initialData: DashboardData; signOut: () => Promise<void> }) {
-  const [tab, setTab] = useState<AdminTab>("Overview");
+export default function AdminDashboard({ page, ownerEmail, initialData, signOut }: { page: AdminPage; ownerEmail: string; initialData: DashboardData; signOut: () => Promise<void> }) {
+  const pathname = usePathname();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [data, setData] = useState(initialData);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState("");
@@ -45,6 +55,7 @@ export default function AdminDashboard({ ownerEmail, initialData, signOut }: { o
   const quotesNew = data.quotes.filter((quote) => quote.status === "new").length;
   const unreadMessages = data.messages.filter((message) => !message.is_read).length;
   const activeSubscribers = data.subscribers.filter((subscriber) => subscriber.status !== "unsubscribed").length;
+  const pageTitle = page;
   const groupedSections = useMemo(() => {
     const groups = new Map<string, Section[]>();
     for (const section of data.sections) {
@@ -65,38 +76,39 @@ export default function AdminDashboard({ ownerEmail, initialData, signOut }: { o
   }
 
   return (
-    <main className="min-h-screen bg-[var(--admin-page)] text-[var(--admin-ink)]">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col bg-[var(--admin-sidebar)] p-6 text-white lg:flex">
-        <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--admin-gold-light)]">Shalom Logistics</p><p className="mt-1 text-2xl font-bold">Admin Panel</p></div>
-        <nav className="mt-10 flex flex-col gap-2" aria-label="Admin sections">
-          {TABS.map((item) => <button key={item} type="button" onClick={() => setTab(item)} className={`rounded-lg px-4 py-3 text-left text-sm font-semibold transition ${tab === item ? "bg-[var(--admin-green)] text-white" : "text-white/75 hover:bg-white/10 hover:text-white"}`}>{item}</button>)}
+    <main className="min-h-screen bg-[var(--admin-page)] text-[var(--admin-ink)] lg:pl-64">
+      {drawerOpen ? <button aria-label="Close navigation overlay" onClick={() => setDrawerOpen(false)} className="fixed inset-0 z-40 bg-black/60 lg:hidden" /> : null}
+      <aside className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[var(--admin-sidebar)] p-5 text-white transition-transform lg:w-64 lg:translate-x-0 ${drawerOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="flex items-center gap-3 border-b border-white/10 pb-6"><div className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--admin-green)] font-bold">S</div><div><p className="font-bold">Shalom Logistics</p><p className="text-sm text-white/65">Admin Panel</p></div><button aria-label="Close menu" onClick={() => setDrawerOpen(false)} className="ml-auto rounded-lg p-2 hover:bg-white/10 lg:hidden"><X size={20} /></button></div>
+        <nav className="mt-5 flex flex-1 flex-col gap-1" aria-label="Admin sections">
+          {NAV_ITEMS.map(({ label, href, icon: Icon }) => <Link key={href} href={href} onClick={() => setDrawerOpen(false)} aria-current={pathname === href ? "page" : undefined} className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-semibold transition ${pathname === href ? "bg-[var(--admin-green)] text-white" : "text-white/75 hover:bg-white/10 hover:text-white"}`}><Icon size={18} /><span className="flex-1">{label}</span>{label === "Quotes" && quotesNew > 0 ? <Badge variant="gold">{quotesNew}</Badge> : null}{label === "Messages" && unreadMessages > 0 ? <Badge variant="gold">{unreadMessages}</Badge> : null}</Link>)}
         </nav>
+        <form action={signOut} className="border-t border-white/10 pt-4"><Button type="submit" variant="sidebar" className="w-full justify-start">Sign out</Button></form>
       </aside>
-      <div className="lg:pl-64">
-      <header className="border-b border-[var(--admin-green-dark)] bg-[var(--admin-green)] text-white">
-        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-4 px-4 py-5 sm:px-8">
-          <div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/80">Shalom Logistics</p><h1 className="mt-1 text-2xl font-bold">Admin Panel</h1><p className="mt-1 text-sm text-white/85">Signed in as {ownerEmail}</p></div>
-          <form action={signOut}><button className="rounded-lg border border-white/30 px-4 py-2 text-sm font-semibold hover:bg-white/10">Sign out</button></form>
+      <header className="sticky top-0 z-30 border-b border-[var(--admin-border)] bg-white/95 text-[var(--admin-ink)] shadow-sm backdrop-blur">
+        <div className="mx-auto flex min-h-20 max-w-[1500px] items-center gap-3 px-4 sm:px-8">
+          <button aria-label="Open menu" onClick={() => setDrawerOpen(true)} className="rounded-lg p-2 hover:bg-slate-100 lg:hidden"><Menu size={22} /></button>
+          <h1 className="min-w-0 flex-1 text-xl font-bold sm:text-2xl">{pageTitle}</h1>
+          <div className="hidden w-full max-w-sm sm:block"><Input aria-label="Search admin" placeholder="Search" leading={<Search size={17} />} /></div>
+          <div className="relative shrink-0"><Button type="button" variant="outline" aria-expanded={profileOpen} onClick={() => setProfileOpen((open) => !open)} className="gap-2"><span className="hidden max-w-48 truncate text-sm sm:inline">{ownerEmail}</span><span className="sm:hidden">Profile</span><ChevronDown size={16} /></Button>{profileOpen ? <div className="absolute right-0 top-full z-40 mt-2 w-48 rounded-xl border border-[var(--admin-border)] bg-white p-2 shadow-xl"><form action={signOut}><button className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-slate-100">Sign out</button></form></div> : null}</div>
         </div>
+        <div className="border-t border-slate-100 px-4 py-2 text-xs text-[var(--admin-muted)] sm:px-8">Signed in as <span className="break-all">{ownerEmail}</span></div>
+        <div className="px-4 pb-3 sm:hidden"><Input aria-label="Search admin" placeholder="Search" leading={<Search size={17} />} /></div>
       </header>
       <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-8">
-        <nav className="flex gap-2 overflow-x-auto border-b border-[var(--admin-border)] pb-3 lg:hidden" aria-label="Admin sections">
-          {TABS.map((item) => <button key={item} type="button" onClick={() => setTab(item)} className={`shrink-0 rounded-lg px-4 py-2 text-sm font-semibold ${tab === item ? "bg-[var(--admin-green)] text-white" : "bg-white text-[var(--admin-muted)] hover:bg-slate-100"}`}>{item}</button>)}
-        </nav>
-        {notice ? <p role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{notice}</p> : null}
-        {(tab === "Overview" || tab === "Quotes") ? <section className="mt-6 space-y-6"><div className="grid gap-4 sm:grid-cols-3"><Metric label="New Quotes" value={quotesNew} /><Metric label="Unread Messages" value={unreadMessages} /><Metric label="Active Subscribers" value={activeSubscribers} /></div>{tab === "Overview" ? <Panel title="Recent Quote Requests"><QuoteTable quotes={data.quotes.slice(0, 6)} busy={busy} onMutate={mutate} /></Panel> : <Panel title="Quote Requests"><QuoteTable quotes={data.quotes} busy={busy} onMutate={mutate} /></Panel>}{tab === "Overview" ? <Panel title="Recent Contact Messages"><MessageList messages={data.messages.slice(0, 5)} busy={busy} onMutate={mutate} /></Panel> : null}</section> : null}
-        {tab === "Messages" ? <Panel className="mt-6" title="Contact Messages"><MessageList messages={data.messages} busy={busy} onMutate={mutate} /></Panel> : null}
-        {tab === "Subscribers" ? <Panel className="mt-6" title="Subscribers"><div className="mb-4 flex justify-end"><button type="button" onClick={exportSubscribers} className="rounded-lg bg-[#0a5c36] px-4 py-2 text-sm font-semibold text-white">Export CSV</button></div><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b text-slate-500"><th className="p-3">Email</th><th className="p-3">Status</th><th className="p-3">Joined</th><th className="p-3">Actions</th></tr></thead><tbody>{data.subscribers.map((item) => <tr key={item.id} className="border-b border-slate-100"><td className="p-3 font-medium">{item.email}</td><td className="p-3"><span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">{item.status ?? "active"}</span></td><td className="p-3">{new Date(item.created_at).toLocaleDateString()}</td><td className="p-3"><button disabled={busy === item.id} onClick={() => mutate({ action: "delete", table: "subscribers", id: item.id })} className="text-red-700 hover:underline">Delete</button></td></tr>)}</tbody></table></div></Panel> : null}
-        {tab === "Site Content" ? <div className="mt-6 space-y-8">{groupedSections.map(([group, sections]) => <section key={group}><h2 className="mb-3 text-lg font-bold text-[#0a5c36]">{group}</h2><div className="grid gap-4 xl:grid-cols-2">{sections.map((section) => <SectionEditor key={section.section_key} section={section} busy={busy === section.section_key} onSave={(values) => mutate({ action: "save-section", sectionKey: section.section_key, ...values })} />)}</div></section>)}</div> : null}
-      </div>
+        {notice ? <Toast role="status">{notice}</Toast> : null}
+        {page === "Dashboard" ? <section className="mt-2 space-y-6"><div className="grid gap-4 sm:grid-cols-3"><Metric label="New Quotes" value={quotesNew} /><Metric label="Unread Messages" value={unreadMessages} /><Metric label="Active Subscribers" value={activeSubscribers} /></div><Card title="Recent Quote Requests"><QuoteTable quotes={data.quotes.slice(0, 6)} busy={busy} onMutate={mutate} /></Card><Card title="Recent Contact Messages"><MessageList messages={data.messages.slice(0, 5)} busy={busy} onMutate={mutate} /></Card></section> : null}
+        {page === "Quotes" ? <Card className="mt-2" title="Quote Requests"><QuoteTable quotes={data.quotes} busy={busy} onMutate={mutate} /></Card> : null}
+        {page === "Messages" ? <Card className="mt-2" title="Contact Messages"><MessageList messages={data.messages} busy={busy} onMutate={mutate} /></Card> : null}
+        {page === "Subscribers" ? <Card className="mt-2" title="Subscribers"><div className="mb-4 flex justify-end"><Button type="button" variant="primary" onClick={exportSubscribers}>Export CSV</Button></div><Table headers={["Email", "Status", "Joined", "Actions"]}>{data.subscribers.map((item) => <tr key={item.id} className="border-b border-slate-100"><td className="p-3 font-medium">{item.email}</td><td className="p-3"><Badge variant="success">{item.status ?? "active"}</Badge></td><td className="p-3">{new Date(item.created_at).toLocaleDateString()}</td><td className="p-3"><Button type="button" variant="danger" disabled={busy === item.id} onClick={() => mutate({ action: "delete", table: "subscribers", id: item.id })}>Delete</Button></td></tr>)}</Table>{data.subscribers.length === 0 ? <EmptyState title="No subscribers yet" /> : null}</Card> : null}
+        {page === "Site Content" ? <div className="mt-2 space-y-8">{groupedSections.map(([group, sections]) => <section key={group}><h2 className="mb-3 text-lg font-bold text-[var(--admin-green-dark)]">{group}</h2><div className="grid gap-4 xl:grid-cols-2">{sections.map((section) => <SectionEditor key={section.section_key} section={section} busy={busy === section.section_key} onSave={(values) => mutate({ action: "save-section", sectionKey: section.section_key, ...values })} />)}</div></section>)}</div> : null}
+        {["Services", "Testimonies", "Settings"].includes(page) ? <Card className="mt-2" title={page}><EmptyState title={`${page} panel`} description="This panel is ready for its feature work." /></Card> : null}
       </div>
     </main>
   );
 }
 
 function Metric({ label, value }: { label: string; value: number }) { return <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm font-medium text-slate-500">{label}</p><p className="mt-2 text-3xl font-bold text-[#0a5c36]">{value}</p></div>; }
-function Panel({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) { return <section className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 ${className}`}><h2 className="mb-4 text-lg font-bold">{title}</h2>{children}</section>; }
-
 function QuoteTable({ quotes, busy, onMutate }: { quotes: Quote[]; busy: string; onMutate: (payload: Record<string, unknown>) => Promise<void> }) {
   return <div className="space-y-3">{quotes.map((quote) => <article key={quote.id} className="rounded-lg border border-slate-200 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold">{quote.full_name} <span className="font-normal text-slate-500">· {quote.move_type}</span></h3><p className="mt-1 text-sm text-slate-600">{quote.phone}{quote.email ? ` · ${quote.email}` : ""}</p><p className="mt-1 text-sm text-slate-600">{quote.pickup_location} → {quote.dropoff_location} · {quote.preferred_date ?? "Date flexible"}</p>{quote.notes ? <p className="mt-2 text-sm text-slate-700">{quote.notes}</p> : null}</div><a className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900" href={`https://wa.me/${quote.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">WhatsApp reply</a></div><div className="mt-4 flex flex-wrap items-center gap-3"><label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status <select aria-label={`Status for ${quote.full_name}`} value={quote.status} onChange={(event) => void onMutate({ action: "update", table: "quote_requests", id: quote.id, status: event.target.value })} className="ml-2 rounded-md border border-slate-300 px-2 py-1 text-sm font-normal normal-case">{["new", "contacted", "quoted", "completed", "archived"].map((status) => <option key={status}>{status}</option>)}</select></label><button disabled={busy === quote.id} onClick={() => void onMutate({ action: "delete", table: "quote_requests", id: quote.id })} className="text-sm font-semibold text-red-700 hover:underline">Delete</button></div></article>)}{quotes.length === 0 ? <p className="text-sm text-slate-500">No quote requests yet.</p> : null}</div>;
 }

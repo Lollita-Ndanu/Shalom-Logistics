@@ -12,8 +12,3 @@
   --admin-muted: #58645d;
   --admin-border: #dce3de;
 }
-
-body:has(.admin-theme) > header,
-body:has(.admin-theme) > a[aria-label="Chat with Shalom Logistics on WhatsApp"] {
-  display: none;
-}

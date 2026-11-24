@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import PublicChrome from "@/components/layout/PublicChrome";
+import Navbar from "@/components/layout/Navbar";
+import FloatingWhatsApp from "@/components/layout/FloatingWhatsApp";
 import { getSiteSections, visibleItems } from "@/lib/cms/sections";
 import { FOOTER_SERVICES, NAV_LINKS } from "@/lib/constants";
 import "./globals.css";
@@ -79,8 +80,9 @@ export default async function RootLayout({
     >
       <head><script dangerouslySetInnerHTML={{ __html: 'document.documentElement.classList.add("js")' }} /></head>
       <body className="min-h-screen flex flex-col font-sans antialiased text-gray-900 bg-white">
-          <PublicChrome navLinks={navLinks} quoteLabel={String(header?.ctaLabel ?? "Get a Quote")} quoteHref={String(header?.ctaHref ?? "").startsWith("/") && header?.ctaHref !== "#quote" ? String(header?.ctaHref) : "/quote"} logoUrl={footerContent.logoUrl} companyName={footerContent.name} phone1={footerContent.phone1} phone2={footerContent.phone2} showNavbar={sections.header?.isVisible !== false} />
+          {sections.header?.isVisible !== false ? <Navbar navLinks={navLinks} quoteLabel={String(header?.ctaLabel ?? "Get a Quote")} quoteHref={String(header?.ctaHref ?? "").startsWith("/") && header?.ctaHref !== "#quote" ? String(header?.ctaHref) : "/quote"} logoUrl={footerContent.logoUrl} companyName={footerContent.name} phone1={footerContent.phone1} phone2={footerContent.phone2} /> : null}
           <main className="flex-1">{children}</main>
+          <FloatingWhatsApp />
       </body>
     </html>
   );
