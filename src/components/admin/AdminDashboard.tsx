@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, useEffect, useRef, type FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LockKeyhole, Menu, Search, X, ChevronDown, LayoutDashboard, Truck, Users, MessageSquare, Settings, Quote } from "lucide-react";
-import { Badge, Button, Card, EmptyState, Input, Table, Toast } from "@/components/admin/ui";
+import { Badge, Button, Card, EmptyState, ErrorState, Input, LoadingState, Table, Toast } from "@/components/admin/ui";
+
+type SearchInputHandle = HTMLInputElement;
 
 type Section = { section_key: string; label: string; is_visible: boolean; content: Record<string, unknown>; updated_at?: string };
 type Quote = Record<string, unknown> & { id: string; created_at: string; full_name: string; phone: string; email?: string; move_type: string; pickup_location: string; dropoff_location: string; preferred_date?: string; notes?: string; status: string };
@@ -13,6 +15,17 @@ type Message = Record<string, unknown> & { id: string; created_at: string; name:
 type Subscriber = Record<string, unknown> & { id: string; created_at: string; email: string; status?: string };
 type DashboardData = { quotes: Quote[]; messages: Message[]; subscribers: Subscriber[]; sections: Section[] };
 type AdminPage = "Dashboard" | "Quotes" | "Messages" | "Subscribers" | "Services" | "Testimonies" | "Site Content" | "Settings";
+type SearchType = "Quotes" | "Messages" | "Subscribers" | "Services" | "Testimonies" | "Page Content";
+type SearchHit = { type: SearchType; title: string; text: string; href: string; locked?: boolean; key: string };
+
+const SHORTCUTS = [
+  { title: "Testimonies", description: "Edit customer stories and reviews.", href: "/admin/testimonies", icon: Quote },
+  { title: "Services", description: "Review services and categories.", href: "/admin/services", icon: Truck },
+  { title: "Gallery", description: "Manage images and gallery content.", href: "/admin/site-content?tab=gallery", icon: LayoutDashboard },
+  { title: "Site Content", description: "Edit the content shown across pages.", href: "/admin/site-content", icon: LayoutDashboard },
+  { title: "Subscribers", description: "View and export subscribers.", href: "/admin/subscribers", icon: Users },
+  { title: "Settings", description: "Manage shared site settings.", href: "/admin/settings", icon: Settings },
+];
 
 const NAV_ITEMS: { label: AdminPage; href: string; icon: typeof LayoutDashboard }[] = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard }, { label: "Quotes", href: "/admin/quotes", icon: Quote },
@@ -27,13 +40,42 @@ const GROUPS: Record<string, string> = {
   services: "Services", services_hero: "Services", services_popular: "Services", services_categories: "Services", services_detail: "Services", services_how_it_works: "Services", services_areas: "Services", services_cta: "Services",
   about_story: "About Us", about_purpose: "About Us", about_trust: "About Us", gallery_content: "Gallery", quote_content: "Quote Page", contact_content: "Contact Page", email_welcome: "Welcome Email",
 };
-export default function AdminDashboard({ page, ownerEmail, initialData, signOut }: { page: AdminPage; ownerEmail: string; initialData: DashboardData; signOut: () => Promise<void> }) {
+export default function AdminDashboard({ page, ownerEmail, displayName, initialData, dataError, signOut }: { page: AdminPage; ownerEmail: string; displayName: string; initialData: DashboardData; dataError: string; signOut: () => Promise<void> }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [searchActive, setSearchActive] = useState(false);
+  const searchLoading = searchQuery.trim() !== debouncedSearch && searchQuery.trim().length > 0;
+  const [activeResult, setActiveResult] = useState(0);
+  const searchInput = useRef<SearchInputHandle>(null);
   const [data, setData] = useState(initialData);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState("");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "/" && !["INPUT", "TEXTAREA", "SELECT"].includes((event.target as HTMLElement | null)?.tagName ?? "")) {
+        event.preventDefault();
+        searchInput.current?.focus();
+      } else if (event.key === "Escape") {
+        setSearchActive(false);
+        searchInput.current?.blur();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   async function mutate(payload: Record<string, unknown>) {
     setBusy(String(payload.id ?? payload.sectionKey ?? payload.action));
@@ -55,7 +97,25 @@ export default function AdminDashboard({ page, ownerEmail, initialData, signOut 
   const quotesNew = data.quotes.filter((quote) => quote.status === "new").length;
   const unreadMessages = data.messages.filter((message) => !message.is_read).length;
   const activeSubscribers = data.subscribers.filter((subscriber) => subscriber.status !== "unsubscribed").length;
-  const pageTitle = page;
+  const pageTitle = page === "Dashboard" ? "Dashboard" : page;
+  const siteContentTab = searchParams.get("tab") === "gallery" ? "Gallery" : "All Content";
+  const focusedItem = searchParams.get("item");
+  const searchHits = useMemo(() => buildSearchHits(data, debouncedSearch), [data, debouncedSearch]);
+  const searchGroups = useMemo(() => {
+    const groups = new Map<SearchType, SearchHit[]>();
+    for (const hit of searchHits) groups.set(hit.type, [...(groups.get(hit.type) ?? []), hit]);
+    return [...groups.entries()];
+  }, [searchHits]);
+  const flatSearchHits = searchGroups.flatMap(([, hits]) => hits);
+  useEffect(() => {
+    const index = searchParams.get("item");
+    if (index) document.getElementById(`${page === "Quotes" ? "quote" : "message"}-${index}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [page, searchParams, data]);
+
+  function activateSearchResult(delta: number) {
+    if (!flatSearchHits.length) return;
+    setActiveResult((index) => (index + delta + flatSearchHits.length) % flatSearchHits.length);
+  }
   const groupedSections = useMemo(() => {
     const groups = new Map<string, Section[]>();
     for (const section of data.sections) {
@@ -89,26 +149,98 @@ export default function AdminDashboard({ page, ownerEmail, initialData, signOut 
         <div className="mx-auto flex min-h-20 max-w-[1500px] items-center gap-3 px-4 sm:px-8">
           <button aria-label="Open menu" onClick={() => setDrawerOpen(true)} className="rounded-lg p-2 hover:bg-slate-100 lg:hidden"><Menu size={22} /></button>
           <h1 className="min-w-0 flex-1 text-xl font-bold sm:text-2xl">{pageTitle}</h1>
-          <div className="hidden w-full max-w-sm sm:block"><Input aria-label="Search admin" placeholder="Search" leading={<Search size={17} />} /></div>
+          <div className="relative hidden w-full max-w-sm sm:block"><Input aria-label="Search admin" placeholder="Search quotes, messages, content…" leading={<Search size={17} />} inputRef={searchInput} value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setSearchActive(true); setActiveResult(0); }} onFocus={() => setSearchActive(true)} onKeyDown={(event) => { if (event.key === "ArrowDown") { event.preventDefault(); activateSearchResult(1); } else if (event.key === "ArrowUp") { event.preventDefault(); activateSearchResult(-1); } else if (event.key === "Enter" && flatSearchHits[activeResult]) { event.preventDefault(); window.location.href = flatSearchHits[activeResult].href; } }} />{searchActive && searchQuery.trim() ? <SearchDropdown groups={searchGroups} query={debouncedSearch} loading={searchLoading} activeResult={activeResult} onHover={setActiveResult} onClose={() => setSearchActive(false)} /> : null}</div>
           <div className="relative shrink-0"><Button type="button" variant="outline" aria-expanded={profileOpen} onClick={() => setProfileOpen((open) => !open)} className="gap-2"><span className="hidden max-w-48 truncate text-sm sm:inline">{ownerEmail}</span><span className="sm:hidden">Profile</span><ChevronDown size={16} /></Button>{profileOpen ? <div className="absolute right-0 top-full z-40 mt-2 w-48 rounded-xl border border-[var(--admin-border)] bg-white p-2 shadow-xl"><form action={signOut}><button className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-slate-100">Sign out</button></form></div> : null}</div>
         </div>
         <div className="border-t border-slate-100 px-4 py-2 text-xs text-[var(--admin-muted)] sm:px-8">Signed in as <span className="break-all">{ownerEmail}</span></div>
-        <div className="px-4 pb-3 sm:hidden"><Input aria-label="Search admin" placeholder="Search" leading={<Search size={17} />} /></div>
+        <div className="relative px-4 pb-3 sm:hidden"><Input aria-label="Search admin" placeholder="Search quotes, messages, content…" leading={<Search size={17} />} inputRef={searchInput} value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setSearchActive(true); setActiveResult(0); }} onFocus={() => setSearchActive(true)} onKeyDown={(event) => { if (event.key === "ArrowDown") { event.preventDefault(); activateSearchResult(1); } else if (event.key === "ArrowUp") { event.preventDefault(); activateSearchResult(-1); } else if (event.key === "Enter" && flatSearchHits[activeResult]) { event.preventDefault(); window.location.href = flatSearchHits[activeResult].href; } }} />{searchActive && searchQuery.trim() ? <SearchDropdown groups={searchGroups} query={debouncedSearch} loading={searchLoading} activeResult={activeResult} onHover={setActiveResult} onClose={() => setSearchActive(false)} /> : null}</div>
       </header>
       <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-8">
         {notice ? <Toast role="status">{notice}</Toast> : null}
-        {page === "Dashboard" ? <section className="mt-2 space-y-6"><div className="grid gap-4 sm:grid-cols-3"><Metric label="New Quotes" value={quotesNew} /><Metric label="Unread Messages" value={unreadMessages} /><Metric label="Active Subscribers" value={activeSubscribers} /></div><Card title="Recent Quote Requests"><QuoteTable quotes={data.quotes.slice(0, 6)} busy={busy} onMutate={mutate} /></Card><Card title="Recent Contact Messages"><MessageList messages={data.messages.slice(0, 5)} busy={busy} onMutate={mutate} /></Card></section> : null}
-        {page === "Quotes" ? <Card className="mt-2" title="Quote Requests"><QuoteTable quotes={data.quotes} busy={busy} onMutate={mutate} /></Card> : null}
-        {page === "Messages" ? <Card className="mt-2" title="Contact Messages"><MessageList messages={data.messages} busy={busy} onMutate={mutate} /></Card> : null}
+        {page === "Dashboard" ? <DashboardHome displayName={displayName} date={new Date()} data={data} loading={false} error={dataError} quotesNew={quotesNew} unreadMessages={unreadMessages} activeSubscribers={activeSubscribers} /> : null}
+        {page === "Quotes" ? <Card className="mt-2" title="Quote Requests">{focusedItem && !data.quotes.some((record) => record.id === focusedItem) ? <ErrorState title="Quote not found" description="It may have been removed or is no longer available." /> : data.quotes.length ? <QuoteTable quotes={focusedItem ? data.quotes.filter((record) => record.id === focusedItem) : data.quotes} busy={busy} onMutate={mutate} /> : <EmptyState title="No quote requests yet" />}</Card> : null}
+        {page === "Messages" ? <Card className="mt-2" title="Contact Messages">{focusedItem && !data.messages.some((record) => record.id === focusedItem) ? <ErrorState title="Message not found" description="It may have been removed or is no longer available." /> : data.messages.length ? <MessageList messages={focusedItem ? data.messages.filter((record) => record.id === focusedItem) : data.messages} busy={busy} onMutate={mutate} /> : <EmptyState title="No messages yet" />}</Card> : null}
         {page === "Subscribers" ? <Card className="mt-2" title="Subscribers"><div className="mb-4 flex justify-end"><Button type="button" variant="primary" onClick={exportSubscribers}>Export CSV</Button></div><Table headers={["Email", "Status", "Joined", "Actions"]}>{data.subscribers.map((item) => <tr key={item.id} className="border-b border-slate-100"><td className="p-3 font-medium">{item.email}</td><td className="p-3"><Badge variant="success">{item.status ?? "active"}</Badge></td><td className="p-3">{new Date(item.created_at).toLocaleDateString()}</td><td className="p-3"><Button type="button" variant="danger" disabled={busy === item.id} onClick={() => mutate({ action: "delete", table: "subscribers", id: item.id })}>Delete</Button></td></tr>)}</Table>{data.subscribers.length === 0 ? <EmptyState title="No subscribers yet" /> : null}</Card> : null}
-        {page === "Site Content" ? <div className="mt-2 space-y-8">{groupedSections.map(([group, sections]) => <section key={group}><h2 className="mb-3 text-lg font-bold text-[var(--admin-green-dark)]">{group}</h2><div className="grid gap-4 xl:grid-cols-2">{sections.map((section) => <SectionEditor key={section.section_key} section={section} busy={busy === section.section_key} onSave={(values) => mutate({ action: "save-section", sectionKey: section.section_key, ...values })} />)}</div></section>)}</div> : null}
+        {page === "Site Content" ? <div className="mt-2 space-y-6"><div className="flex gap-2 border-b border-[var(--admin-border)]"><button type="button" onClick={() => router.push("/admin/site-content")} className={`border-b-2 px-4 py-2 text-sm font-semibold ${siteContentTab === "All Content" ? "border-[var(--admin-green)] text-[var(--admin-green-dark)]" : "border-transparent text-[var(--admin-muted)]"}`}>All Content</button><button type="button" onClick={() => router.push("/admin/site-content?tab=gallery#gallery_content")} className={`border-b-2 px-4 py-2 text-sm font-semibold ${siteContentTab === "Gallery" ? "border-[var(--admin-green)] text-[var(--admin-green-dark)]" : "border-transparent text-[var(--admin-muted)]"}`}>Gallery</button></div>{groupedSections.filter(([, sections]) => siteContentTab === "All Content" || sections.some((section) => section.section_key === "gallery_content")).map(([group, sections]) => <section key={group}><h2 className="mb-3 text-lg font-bold text-[var(--admin-green-dark)]">{group}</h2><div className="grid gap-4 xl:grid-cols-2">{sections.filter((section) => siteContentTab === "All Content" || section.section_key === "gallery_content").map((section) => <div key={section.section_key} id={section.section_key}><SectionEditor section={section} busy={busy === section.section_key} onSave={(values) => mutate({ action: "save-section", sectionKey: section.section_key, ...values })} /></div>)}</div></section>)}</div> : null}
         {["Services", "Testimonies", "Settings"].includes(page) ? <Card className="mt-2" title={page}><EmptyState title={`${page} panel`} description="This panel is ready for its feature work." /></Card> : null}
       </div>
     </main>
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) { return <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm font-medium text-slate-500">{label}</p><p className="mt-2 text-3xl font-bold text-[#0a5c36]">{value}</p></div>; }
+function DashboardHome({ displayName, date, data, loading, error, quotesNew, unreadMessages, activeSubscribers }: { displayName: string; date: Date; data: DashboardData; loading: boolean; error: string; quotesNew: number; unreadMessages: number; activeSubscribers: number }) {
+  const stats = [{ label: "New Quotes", value: quotesNew, href: "/admin/quotes" }, { label: "Unread Messages", value: unreadMessages, href: "/admin/messages" }, { label: "Active Subscribers", value: activeSubscribers, href: "/admin/subscribers" }];
+  return <section className="mt-2 space-y-7">
+    <div><h2 className="text-2xl font-bold">Welcome back, {displayName}</h2><p className="mt-1 text-sm text-[var(--admin-muted)]">{date.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p></div>
+    {loading ? <LoadingState label="Loading dashboard…" /> : error ? <ErrorState title="Dashboard data could not be loaded" description={error} /> : <>
+      <div className="grid gap-4 sm:grid-cols-3">{stats.map((stat) => <Link href={stat.href} key={stat.label} className="group relative overflow-hidden rounded-xl border border-[var(--admin-border)] border-t-4 border-t-[var(--admin-gold)] bg-white p-5 shadow-sm transition hover:border-[var(--admin-green)] hover:bg-[var(--admin-green)] hover:text-white"><span className="text-sm font-semibold text-[var(--admin-muted)] group-hover:text-white/85">{stat.label}</span><span className="mt-2 block text-3xl font-bold text-[var(--admin-green-dark)] group-hover:text-white">{stat.value}</span></Link>)}</div>
+      <div><h2 className="mb-3 text-lg font-bold">Shortcuts</h2><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{SHORTCUTS.map(({ title, description, href, icon: Icon }) => <Link key={title} href={href} className="group flex items-start gap-3 rounded-xl border border-[var(--admin-border)] border-l-4 border-l-[var(--admin-gold)] bg-white p-4 transition hover:border-[var(--admin-green)] hover:bg-[var(--admin-green)] hover:text-white"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[var(--admin-gold)] text-[var(--admin-ink)] group-hover:bg-white group-hover:text-[var(--admin-green)]"><Icon size={20} /></span><span><span className="block font-bold">{title}</span><span className="mt-1 block text-sm text-[var(--admin-muted)] group-hover:text-white/85">{description}</span></span></Link>)}</div></div>
+      <Card title="Recent Quote Requests">{data.quotes.length ? <RecentQuotes quotes={data.quotes.slice(0, 5)} /> : <EmptyState title="No quote requests yet" description="New requests will appear here." />}</Card>
+      <Card title="Recent Messages">{data.messages.length ? <RecentMessages messages={data.messages.slice(0, 5)} /> : <EmptyState title="No messages yet" description="New messages will appear here." />}</Card>
+    </>}
+  </section>;
+}
+
+function RecentQuotes({ quotes }: { quotes: Quote[] }) {
+  return <Table headers={["Name", "Service", "Route", "Date", "Status", ""]}>{quotes.map((quote) => <tr id={`quote-${quote.id}`} key={quote.id} className="border-b border-slate-100"><td className="p-3 font-semibold">{quote.full_name}</td><td className="p-3">{String(quote.service_category ?? quote.move_type)}</td><td className="p-3">{quote.pickup_location} → {quote.dropoff_location}</td><td className="p-3">{quote.preferred_date ?? "Flexible"}</td><td className="p-3"><Badge variant={quote.status === "new" ? "gold" : "neutral"}>{quote.status}</Badge></td><td className="p-3"><Link className="font-semibold text-[var(--admin-green-dark)] underline" href={`/admin/quotes?item=${encodeURIComponent(quote.id)}#quote-${encodeURIComponent(quote.id)}`}>View</Link></td></tr>)}</Table>;
+}
+
+function RecentMessages({ messages }: { messages: Message[] }) {
+  return <div className="divide-y divide-slate-100">{messages.map((message) => <div id={`message-${message.id}`} key={message.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div className="min-w-0"><p className="font-semibold">{message.name}</p><p className="mt-1 max-w-3xl truncate text-sm text-[var(--admin-muted)]">{message.message}</p></div><div className="flex items-center gap-3"><Badge variant={message.is_read ? "neutral" : "gold"}>{message.is_read ? "Read" : "Unread"}</Badge><Link className="font-semibold text-[var(--admin-green-dark)] underline" href={`/admin/messages?item=${encodeURIComponent(message.id)}#message-${encodeURIComponent(message.id)}`}>View</Link></div></div>)}</div>;
+}
+
+function buildSearchHits(data: DashboardData, query: string): SearchHit[] {
+  if (!query) return [];
+  const needle = query.toLocaleLowerCase();
+  const hits: SearchHit[] = [];
+  const add = (hit: SearchHit, haystack: string) => { if (haystack.toLocaleLowerCase().includes(needle)) hits.push(hit); };
+  data.quotes.forEach((item) => add({ type: "Quotes", title: item.full_name, text: `${item.move_type} · ${item.pickup_location} → ${item.dropoff_location} · ${item.status}`, href: `/admin/quotes?item=${encodeURIComponent(item.id)}#quote-${encodeURIComponent(item.id)}`, key: item.id }, `${item.full_name} ${item.email ?? ""} ${item.phone} ${item.move_type} ${item.service_category ?? ""} ${item.pickup_location} ${item.dropoff_location} ${item.notes ?? ""} ${item.status}`));
+  data.messages.forEach((item) => add({ type: "Messages", title: item.name, text: `${item.subject ?? "Message"} · ${item.message}`, href: `/admin/messages?item=${encodeURIComponent(item.id)}#message-${encodeURIComponent(item.id)}`, key: item.id }, `${item.name} ${item.email} ${item.subject ?? ""} ${item.message}`));
+  data.subscribers.forEach((item) => add({ type: "Subscribers", title: item.email, text: `Subscriber · ${item.status ?? "active"}`, href: "/admin/subscribers", key: item.id }, `${item.email} ${item.status ?? "active"}`));
+  for (const section of data.sections) {
+    const flat = flattenContent(section.content);
+    const isService = section.section_key.startsWith("services") || section.section_key === "home_services";
+    const isTestimony = section.section_key.includes("testimonial") || section.section_key === "about_trust";
+    if (!isService && !isTestimony && ["email_welcome", "global_brand"].includes(section.section_key) && !/title|heading|body|description|name|tagline|email|phone|address/i.test(query)) continue;
+    const type: SearchType = isService ? "Services" : isTestimony ? "Testimonies" : "Page Content";
+    const href = type === "Services" ? "/admin/services" : type === "Testimonies" ? "/admin/testimonies" : `/admin/site-content?section=${encodeURIComponent(section.section_key)}${section.section_key === "gallery_content" ? "&tab=gallery" : ""}`;
+    const lockedSection = ["hero", "services_hero"].includes(section.section_key);
+    if (lockedSection) add({ type, title: section.label, text: excerpt(flat, query), href, locked: true, key: section.section_key }, `${section.label} ${flat}`);
+    else for (const [index, text] of flat.split(" · ").entries()) add({ type, title: `${section.label} · ${index + 1}`, text, href, locked: containsLockedData(text, section.section_key), key: `${section.section_key}-${index}` }, `${section.label} ${text}`);
+  }
+  return hits;
+}
+
+function flattenContent(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(flattenContent).filter(Boolean).join(" · ");
+  if (value && typeof value === "object") return Object.entries(value as Record<string, unknown>).map(([key, child]) => `${key.replaceAll(/([A-Z])/g, " $1")}: ${flattenContent(child)}`).filter(Boolean).join(" · ");
+  return "";
+}
+
+function excerpt(text: string, query: string): string {
+  const index = text.toLocaleLowerCase().indexOf(query.toLocaleLowerCase());
+  const start = Math.max(0, index - 45);
+  return `${start ? "…" : ""}${text.slice(start, start + 150)}${start + 150 < text.length ? "…" : ""}`;
+}
+
+function containsLockedData(text: string, sectionKey: string) {
+  return ["hero", "services_hero", "about_story", "contact_content", "header", "footer"].includes(sectionKey) && /(href|map|destination|latitude|longitude|hero|heading|subtext)/i.test(text);
+}
+
+function Highlight({ text, query }: { text: string; query: string }) {
+  const index = text.toLocaleLowerCase().indexOf(query.toLocaleLowerCase());
+  if (index < 0 || !query) return <>{text}</>;
+  return <>{text.slice(0, index)}<mark className="rounded bg-[var(--admin-gold-light)] px-0.5 text-[var(--admin-ink)]">{text.slice(index, index + query.length)}</mark>{text.slice(index + query.length)}</>;
+}
+
+function SearchDropdown({ groups, query, loading, activeResult, onHover, onClose }: { groups: [SearchType, SearchHit[]][]; query: string; loading: boolean; activeResult: number; onHover: (index: number) => void; onClose: () => void }) {
+  if (loading) return <div className="absolute left-0 right-0 top-full z-50 mt-2 rounded-xl border border-[var(--admin-border)] bg-white p-3 shadow-xl"><LoadingState label="Searching…" /></div>;
+  const hits = groups.flatMap(([, entries]) => entries);
+  if (!hits.length) return <div className="absolute left-0 right-0 top-full z-50 mt-2 rounded-xl border border-[var(--admin-border)] bg-white p-4 text-sm text-[var(--admin-muted)] shadow-xl">No results</div>;
+  let position = 0;
+  return <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-[var(--admin-border)] bg-white p-2 shadow-xl">{groups.map(([type, entries]) => <section key={type}><h3 className="px-3 py-2 text-xs font-bold uppercase tracking-wide text-[var(--admin-muted)]">{type}</h3>{entries.map((hit) => { const index = position++; return <Link key={hit.key} href={hit.href} onClick={onClose} onMouseEnter={() => onHover(index)} className={`block rounded-lg px-3 py-2 ${activeResult === index ? "bg-emerald-50" : "hover:bg-slate-50"}`}><span className="flex items-center gap-1.5 text-sm font-semibold">{hit.locked ? <LockKeyhole size={14} aria-label="Managed by developer" /> : null}{hit.title}</span><span className="mt-1 block line-clamp-2 text-xs text-[var(--admin-muted)]"><Highlight text={hit.text} query={query} /></span><span className="mt-1 block text-[11px] text-[var(--admin-green-dark)]">{hit.type}</span></Link>; })}</section>)}</div>;
+}
 function QuoteTable({ quotes, busy, onMutate }: { quotes: Quote[]; busy: string; onMutate: (payload: Record<string, unknown>) => Promise<void> }) {
   return <div className="space-y-3">{quotes.map((quote) => <article key={quote.id} className="rounded-lg border border-slate-200 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold">{quote.full_name} <span className="font-normal text-slate-500">· {quote.move_type}</span></h3><p className="mt-1 text-sm text-slate-600">{quote.phone}{quote.email ? ` · ${quote.email}` : ""}</p><p className="mt-1 text-sm text-slate-600">{quote.pickup_location} → {quote.dropoff_location} · {quote.preferred_date ?? "Date flexible"}</p>{quote.notes ? <p className="mt-2 text-sm text-slate-700">{quote.notes}</p> : null}</div><a className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900" href={`https://wa.me/${quote.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">WhatsApp reply</a></div><div className="mt-4 flex flex-wrap items-center gap-3"><label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status <select aria-label={`Status for ${quote.full_name}`} value={quote.status} onChange={(event) => void onMutate({ action: "update", table: "quote_requests", id: quote.id, status: event.target.value })} className="ml-2 rounded-md border border-slate-300 px-2 py-1 text-sm font-normal normal-case">{["new", "contacted", "quoted", "completed", "archived"].map((status) => <option key={status}>{status}</option>)}</select></label><button disabled={busy === quote.id} onClick={() => void onMutate({ action: "delete", table: "quote_requests", id: quote.id })} className="text-sm font-semibold text-red-700 hover:underline">Delete</button></div></article>)}{quotes.length === 0 ? <p className="text-sm text-slate-500">No quote requests yet.</p> : null}</div>;
 }

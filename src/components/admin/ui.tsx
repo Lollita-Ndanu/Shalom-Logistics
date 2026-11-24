@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, Ref, SelectHTMLAttributes } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "outline" | "danger" | "sidebar";
 export function Button({ variant = "primary", className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
@@ -25,8 +25,8 @@ export function Table({ headers, children }: { headers: string[]; children: Reac
   return <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead><tr className="border-b border-[var(--admin-border)] text-[var(--admin-muted)]">{headers.map((header) => <th key={header} className="p-3 font-semibold">{header}</th>)}</tr></thead><tbody>{children}</tbody></table></div>;
 }
 
-export function Input({ className = "", leading, ...props }: InputHTMLAttributes<HTMLInputElement> & { leading?: ReactNode }) {
-  return <span className="flex min-h-10 items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-white px-3 focus-within:border-[var(--admin-green)] focus-within:ring-2 focus-within:ring-[var(--admin-green)]/20">{leading ? <span className="text-[var(--admin-muted)]">{leading}</span> : null}<input {...props} className={`min-w-0 flex-1 border-0 bg-transparent py-2 text-sm outline-none placeholder:text-slate-500 ${className}`} /></span>;
+export function Input({ className = "", leading, inputRef, ...props }: InputHTMLAttributes<HTMLInputElement> & { leading?: ReactNode; inputRef?: Ref<HTMLInputElement> }) {
+  return <span className="flex min-h-10 items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-white px-3 focus-within:border-[var(--admin-green)] focus-within:ring-2 focus-within:ring-[var(--admin-green)]/20">{leading ? <span className="text-[var(--admin-muted)]">{leading}</span> : null}<input {...props} ref={inputRef} className={`min-w-0 flex-1 border-0 bg-transparent py-2 text-sm outline-none placeholder:text-slate-500 ${className}`} /></span>;
 }
 
 export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {

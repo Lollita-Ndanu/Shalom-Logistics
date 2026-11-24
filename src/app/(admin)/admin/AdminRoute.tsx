@@ -20,5 +20,5 @@ export default async function AdminRoute({ page }: { page: AdminPage }) {
     await client.auth.signOut();
     redirect("/admin/login");
   }
-  return <AdminDashboard page={page} ownerEmail={user.email ?? "Owner"} initialData={{ quotes: quotesResult.data ?? [], messages: messagesResult.data ?? [], subscribers: subscribersResult.data ?? [], sections: sectionsResult.data ?? [] }} signOut={signOut} />;
+  return <AdminDashboard page={page} ownerEmail={user.email ?? "Owner"} displayName={String(user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email?.split("@")[0] ?? "there")} initialData={{ quotes: quotesResult.data ?? [], messages: messagesResult.data ?? [], subscribers: subscribersResult.data ?? [], sections: sectionsResult.data ?? [] }} dataError={quotesResult.error?.message ?? messagesResult.error?.message ?? subscribersResult.error?.message ?? sectionsResult.error?.message ?? ""} signOut={signOut} />;
 }
