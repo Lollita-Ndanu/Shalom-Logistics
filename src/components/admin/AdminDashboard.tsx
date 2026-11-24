@@ -207,6 +207,7 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
   const selectedPhotoId = gallerySearchParams.get("photo");
   const [altText, setAltText] = useState("");
   const [pendingDelete, setPendingDelete] = useState<PhotoRef | null>(null);
+  const [removeError, setRemoveError] = useState("");
   const [pendingAltSave, setPendingAltSave] = useState<{ photo: PhotoRef; alt: string } | null>(null);
   const [pendingChange, setPendingChange] = useState<{ photo: PhotoRef; url?: string } | null>(null);
   const [replacementUpload, setReplacementUpload] = useState<{ photo: PhotoRef; url: string } | null>(null);
@@ -275,7 +276,7 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
     }
     setChangeProgress(`Updating ${section.label}…`);
     const result = await onMutate({ action: "save-section", sectionKey: section.section_key, label: section.label, isVisible: section.is_visible, content });
-    if (applyEverywhere && (change.url !== undefined || change.alt !== undefined)) {
+    if (applyEverywhere && (change.url !== undefined || change.alt !== undefined || change.remove)) {
       const duplicates = photos.filter((other) => other.url === photo.url && other.sectionKey !== photo.sectionKey);
       for (const duplicate of duplicates) {
         const otherSection = sections.find((item) => item.section_key === duplicate.sectionKey);
@@ -285,7 +286,15 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
         let target: unknown = otherContent;
         for (const part of duplicate.path.slice(0, -1)) target = Array.isArray(target) ? target[Number(part)] : (target as Record<string, unknown>)[part];
         const finalKey = duplicate.path.at(-1)!;
-        if (change.url !== undefined) (target as Record<string, unknown>)[finalKey] = change.url;
+        if (change.remove) {
+          const indexAt = duplicate.path.findIndex((part) => /^\d+$/.test(part));
+          if (indexAt >= 0) {
+            const listPath = duplicate.path.slice(0, indexAt);
+            let list: unknown = otherContent;
+            for (const part of listPath) list = Array.isArray(list) ? list[Number(part)] : (list as Record<string, unknown>)[part];
+            if (Array.isArray(list)) list.splice(Number(duplicate.path[indexAt]), 1);
+          }
+        } else if (change.url !== undefined) (target as Record<string, unknown>)[finalKey] = change.url;
         else if (["src", "image", "imageUrl", "posterImageUrl", "featurePoster"].includes(finalKey)) {
           const record = target as Record<string, unknown>;
           record["alt" in record ? "alt" : "imageAlt"] = change.alt;
@@ -348,6 +357,59 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
     }
     setChangeProgress("");
     setSelectedOverride(null);
+  }
+
+  async function removePhoto(photo: PhotoRef, everywhere: boolean) {
+    const uses = photos.filter((item) => item.url === photo.url);
+    const targets = everywhere ? uses : uses.filter((item) => item.sectionKey === photo.sectionKey && item.key === photo.key);
+    const groups = new Map<string, PhotoRef[]>();
+    for (const item of targets) groups.set(item.sectionKey, [...(groups.get(item.sectionKey) ?? []), item]);
+    setRemoveError("");
+    let failed = false;
+    for (const [sectionKey, removals] of groups) {
+      const section = activeSections.find((item) => item.section_key === sectionKey);
+      if (!section) continue;
+      if (removals.some((item) => item.locked)) {
+        setRemoveError(`Could not remove locked photo from ${section.label}.`);
+        continue;
+      }
+      setChangeProgress(`Removing from ${section.label}…`);
+      const content = structuredClone(section.content);
+      const arrayRemovals = removals.filter((item) => item.path.some((part) => /^\d+$/.test(part)));
+      const directRemovals = removals.filter((item) => !item.path.some((part) => /^\d+$/.test(part)));
+      for (const item of directRemovals) {
+        let parent: unknown = content;
+        for (const part of item.path.slice(0, -1)) parent = Array.isArray(parent) ? parent[Number(part)] : (parent as Record<string, unknown>)[part];
+        if (parent && typeof parent === "object") delete (parent as Record<string, unknown>)[item.path.at(-1)!];
+      }
+      const buckets = new Map<string, PhotoRef[]>();
+      for (const item of arrayRemovals) {
+        const firstIndex = item.path.findIndex((part) => /^\d+$/.test(part));
+        const bucketKey = item.path.slice(0, firstIndex).join(".");
+        buckets.set(bucketKey, [...(buckets.get(bucketKey) ?? []), item]);
+      }
+      for (const items of buckets.values()) {
+        items.sort((a, b) => Number(b.path.find((part) => /^\d+$/.test(part))) - Number(a.path.find((part) => /^\d+$/.test(part))));
+        for (const item of items) {
+          const indexAt = item.path.findIndex((part) => /^\d+$/.test(part));
+          const listPath = item.path.slice(0, indexAt);
+          let list: unknown = content;
+          for (const part of listPath) list = Array.isArray(list) ? list[Number(part)] : (list as Record<string, unknown>)[part];
+          if (Array.isArray(list)) list.splice(Number(item.path[indexAt]), 1);
+        }
+      }
+      try {
+        const response = await fetch("/api/admin/mutate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save-section", sectionKey: section.section_key, label: section.label, isVisible: section.is_visible, content }) });
+        const result = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(result?.error ?? "Update failed.");
+        setGallerySections((current) => current.map((item) => item.section_key === sectionKey ? { ...item, content } : item));
+      } catch (error) {
+        failed = true;
+        setRemoveError(`Could not update ${section.label}: ${error instanceof Error ? error.message : "Update failed."}`);
+      }
+    }
+    setChangeProgress("");
+    if (!failed) setSelectedOverride(null);
   }
 
   async function upload(file?: File) {
@@ -437,11 +499,11 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
   if (busy === "loading") return <LoadingState label="Loading photos…" />;
   return <section className="mt-2 space-y-5">
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"><Input aria-label="Search photos" placeholder="Search alt text, page, section…" value={query} onChange={(event) => setQuery(event.target.value)} /><select aria-label="Filter by page" value={effectivePage} onChange={(event) => { setFilterPageOverride(event.target.value); const slug = PUBLIC_PAGE_TABS.find((tab) => tab.label === event.target.value)?.slug ?? "all"; router.replace(slug === "all" ? "/admin/gallery" : `/admin/gallery?page=${slug}`); }} className="min-h-10 rounded-lg border border-[var(--admin-border)] bg-white px-3 text-sm">{PUBLIC_PAGE_TABS.map((tab) => <option key={tab.slug} value={tab.label}>{tab.label}</option>)}</select><div className="flex flex-wrap items-center gap-4 text-sm"><label className="flex items-center gap-2"><input type="checkbox" checked={sharedOnly} onChange={(event) => setSharedOnly(event.target.checked)} />Shared only</label><label className="flex items-center gap-2"><input type="checkbox" checked={missingAlt} onChange={(event) => setMissingAlt(event.target.checked)} />Missing alt text</label></div></div>
-    {uploadError ? <ErrorState title="Photo action failed" description={uploadError} /> : null}{changeProgress ? <Toast>{changeProgress}</Toast> : null}
+    {uploadError || removeError ? <ErrorState title="Photo action failed" description={uploadError || removeError} /> : null}{changeProgress ? <Toast>{changeProgress}</Toast> : null}
     {filtered.length ? <div className="space-y-6">{[...new Set(filtered.map((photo) => photo.section))].map((sectionName) => <section key={sectionName}><h2 className="mb-3 text-lg font-bold">{sectionName}</h2><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.filter((photo) => photo.section === sectionName).map((photo) => { const uses = photos.filter((item) => item.url === photo.url); const usage = usageLocations(uses); const sharedPages = [...new Set(uses.flatMap((item) => item.page === "Shared" ? sharedLocationPages(item) : [item.page]))]; const cardId = photo.key.startsWith("gallery-upload:") ? "uploaded-gallery-photo" : undefined; return <article id={cardId} key={photo.key} className="overflow-hidden rounded-xl border border-[var(--admin-border)] bg-white shadow-sm"><button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="relative block aspect-[16/10] w-full bg-slate-100 text-left"><Image src={photo.url} alt={photo.alt} fill unoptimized sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw" className="object-cover" />{photo.locked ? <span className="absolute left-2 top-2"><Badge><LockKeyhole size={12} className="mr-1" />Managed by developer</Badge></span> : null}</button><div className="space-y-2 p-4"><p className="font-bold">{photo.section} · {photo.page}</p>{sharedPages.length > 1 ? <span title={`Appears on: ${usage}`}><Badge variant="gold">Shared: appears on {sharedPages.length} pages · {sharedPages.join(", ")}</Badge></span> : null}<p className="text-sm text-[var(--admin-muted)]">{photo.alt || photo.caption || "No alt text"}</p><p className="text-xs text-[var(--admin-muted)]">Used on: {usage}</p><div className="flex items-center justify-between"><button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="text-sm font-semibold text-[var(--admin-green-dark)] underline">View details</button>{photo.sectionKey === "gallery_content" && !photo.locked ? <span className="flex gap-2"><button type="button" aria-label="Move photo up" onClick={() => void moveGalleryPhoto(photo, -1)}>↑</button><button type="button" aria-label="Move photo down" onClick={() => void moveGalleryPhoto(photo, 1)}>↓</button></span> : null}</div></div></article>; })}</div></section>)}</div> : <EmptyState title={effectivePage === "All pages" ? "No photos found" : `No photos on ${effectivePage}`} description="Try another page or adjust the current filters." />}
     {selected ? <div className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto bg-black/60 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}><section role="dialog" aria-modal="true" aria-labelledby="photo-dialog-title" className="w-full max-w-3xl rounded-2xl bg-white p-5 shadow-2xl"><div className="flex items-center justify-between"><h2 id="photo-dialog-title" className="text-xl font-bold">Photo details</h2><button type="button" onClick={() => setSelected(null)} aria-label="Close photo details">×</button></div><div className="relative mt-4 h-[50vh] w-full"><Image src={selected.url} alt={selected.alt} fill unoptimized sizes="(max-width: 768px) 100vw, 768px" className="rounded-xl bg-slate-100 object-contain" /></div><p className="mt-3 break-all text-xs text-[var(--admin-muted)]">{selected.url}</p><p className="mt-2 text-sm">Used in: {photos.filter((photo) => photo.url === selected.url).map((photo) => `${photo.page} / ${photo.section}`).join("; ")}</p>{selected.locked ? <div className="mt-4"><LockedField /></div> : <><label className="mt-4 block text-sm font-semibold">Alt text / caption<input value={altText} onChange={(event) => setAltText(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><div className="mt-4 flex flex-wrap gap-2"><Button type="button" onClick={() => { if (photos.filter((photo) => photo.url === selected.url).length > 1) setPendingAltSave({ photo: selected, alt: altText }); else void savePhoto(selected, { alt: altText }); }}>Save alt text</Button><label className="inline-flex cursor-pointer items-center rounded-lg border border-[var(--admin-border)] px-4 py-2 text-sm font-semibold">{uploading ? "Uploading…" : "Replace image"}<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploading} onChange={(event) => void upload(event.target.files?.[0])} className="hidden" /></label><Button type="button" variant="danger" onClick={() => setPendingDelete(selected)}>Remove image</Button></div></>}</section></div> : null}
     {replacementUpload ? <ConfirmDialog open title="Replace this image?" description="Replacing an image changes the CMS reference. The uploaded original will remain in storage." confirmLabel="Replace image" onCancel={() => setReplacementUpload(null)} onConfirm={() => { const change = replacementUpload; setReplacementUpload(null); if (photos.filter((photo) => photo.url === change.photo.url).length > 1) setPendingChange(change); else void savePhoto(change.photo, { url: change.url }); }} /> : null}
-    {pendingDelete ? <ConfirmDialog open title="Remove this photo?" description="This removes the photo reference from the CMS. It does not delete the uploaded file from storage." confirmLabel="Remove photo" onCancel={() => setPendingDelete(null)} onConfirm={() => { const photo = pendingDelete; setPendingDelete(null); void savePhoto(photo, { remove: true }); }} /> : null}
+    {pendingDelete ? (() => { const uses = photos.filter((item) => item.url === pendingDelete.url); const section = activeSections.find((item) => item.section_key === pendingDelete.sectionKey); const sectionUses = photos.filter((item) => item.sectionKey === pendingDelete.sectionKey); const warnLast = Boolean(section && sectionUses.length <= 1); const locationList = usageLocations(uses); return <ConfirmDialog open title="Remove this photo from the website?" description={`${warnLast ? `This is the last photo in ${pendingDelete.section}; removing it may leave that section empty. ` : ""}This photo will stop appearing on: ${locationList}. The image file itself is kept, so it can be added back later.`} confirmLabel={uses.length > 1 ? "Remove from everywhere it appears" : "Remove from website"} cancelLabel="Cancel" secondaryLabel={uses.length > 1 ? `Remove only from ${pendingDelete.page} / ${pendingDelete.section}` : undefined} onSecondary={uses.length > 1 ? () => { const photo = pendingDelete; setPendingDelete(null); void removePhoto(photo, false); } : undefined} onConfirm={() => { const photo = pendingDelete; setPendingDelete(null); void removePhoto(photo, uses.length > 1); }} onCancel={() => setPendingDelete(null)} />; })() : null}
     {pendingAltSave ? <ConfirmDialog open title="Apply shared photo change?" description={`This photo also appears on: ${photos.filter((photo) => photo.url === pendingAltSave.photo.url).map((photo) => photo.page).filter((page, index, list) => list.indexOf(page) === index).join(", ")}. Apply this change there too?`} confirmLabel="Yes, apply everywhere" cancelLabel="No, only this page" onCancel={() => { const change = pendingAltSave; setPendingAltSave(null); void savePhoto(change.photo, { alt: change.alt }); }} onConfirm={() => { const change = pendingAltSave; setPendingAltSave(null); void applySharedChange(change); }} /> : null}
     {pendingChange ? <ConfirmDialog open title="Apply shared photo change?" description={`This photo also appears on: ${photos.filter((photo) => photo.url === pendingChange.photo.url).map((photo) => photo.page).filter((page, index, list) => list.indexOf(page) === index).join(", ")}. Apply this change there too?`} confirmLabel="Yes, apply everywhere" cancelLabel="No, only this page" onCancel={() => { const change = pendingChange; setPendingChange(null); if (change.url) void savePhoto(change.photo, { url: change.url }); }} onConfirm={() => { const change = pendingChange; setPendingChange(null); void applySharedChange(change); }} /> : null}
     <section className="rounded-2xl border border-[var(--admin-border)] bg-white p-5 shadow-sm sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Add photo to Gallery</h2><span className="mt-2 inline-flex rounded-full bg-[var(--admin-gold-light)] px-3 py-1 text-xs font-semibold text-[var(--admin-ink)]">Adding to: Gallery Content (shown on the public Gallery page)</span></div></div>
