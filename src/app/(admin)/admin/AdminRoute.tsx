@@ -3,7 +3,7 @@ import { requireOwner } from "@/lib/auth/require-owner";
 import { createClient } from "@/lib/supabase/server";
 import AdminDashboard from "@/components/admin/AdminDashboard";
 
-export type AdminPage = "Dashboard" | "Quotes" | "Messages" | "Subscribers" | "Services" | "Testimonies" | "Site Content" | "Settings";
+export type AdminPage = "Dashboard" | "Quotes" | "Messages" | "Subscribers" | "Services" | "Testimonies" | "Gallery" | "Site Content" | "Settings";
 
 export default async function AdminRoute({ page }: { page: AdminPage }) {
   const user = await requireOwner();
