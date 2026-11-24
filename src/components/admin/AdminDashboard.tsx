@@ -41,6 +41,14 @@ const PUBLIC_PAGE_TABS = [
   { slug: "services", label: "Services" }, { slug: "gallery", label: "Gallery page" }, { slug: "quote", label: "Quote" },
   { slug: "contact", label: "Contact" }, { slug: "credits", label: "Credits" },
 ];
+const GALLERY_CATEGORIES = ["Home Moving", "Office Moving", "Transport & Logistics", "Cleaning", "Other Services"];
+
+function prepareGalleryContent(content: Record<string, unknown>) {
+  const next = structuredClone(content);
+  const raw = Array.isArray(next.categories) ? next.categories.filter((value): value is string => typeof value === "string" && value !== "All") : [];
+  next.categories = raw.length === GALLERY_CATEGORIES.length && new Set(raw).size === GALLERY_CATEGORIES.length && raw.every((value) => value.trim()) ? raw : [...GALLERY_CATEGORIES];
+  return next;
+}
 
 const GROUPS: Record<string, string> = {
   header: "Global & Navigation", footer: "Global & Navigation", global_brand: "Global & Navigation",
@@ -104,6 +112,31 @@ export default function AdminDashboard({ page, ownerEmail, displayName, initialD
       if (refreshed.ok) setData(await refreshed.json());
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to save changes.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function mutateAndReport(payload: Record<string, unknown>): Promise<{ ok: boolean; data?: DashboardData; error?: string }> {
+    setBusy(String(payload.id ?? payload.sectionKey ?? payload.action));
+    setNotice("");
+    try {
+      const safePayload = payload.action === "save-section" && payload.sectionKey === "gallery_content" && payload.content && typeof payload.content === "object"
+        ? { ...payload, content: prepareGalleryContent(payload.content as Record<string, unknown>) }
+        : payload;
+      const response = await fetch("/api/admin/mutate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(safePayload) });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.error ?? "Unable to save changes.");
+      const refreshed = await fetch("/api/admin/data", { cache: "no-store" });
+      if (!refreshed.ok) throw new Error("Saved, but the updated content could not be reloaded.");
+      const nextData = await refreshed.json() as DashboardData;
+      setData(nextData);
+      setNotice("Changes saved.");
+      return { ok: true, data: nextData };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to save changes.";
+      setNotice(message);
+      return { ok: false, error: message };
     } finally {
       setBusy("");
     }
@@ -175,7 +208,7 @@ export default function AdminDashboard({ page, ownerEmail, displayName, initialD
         {page === "Messages" ? <Card className="mt-2" title="Contact Messages">{focusedItem && !data.messages.some((record) => record.id === focusedItem) ? <ErrorState title="Message not found" description="It may have been removed or is no longer available." /> : data.messages.length ? <MessageList messages={focusedItem ? data.messages.filter((record) => record.id === focusedItem) : data.messages} busy={busy} onMutate={mutate} /> : <EmptyState title="No messages yet" />}</Card> : null}
         {page === "Subscribers" ? <Card className="mt-2" title="Subscribers"><div className="mb-4 flex justify-end"><Button type="button" variant="primary" onClick={exportSubscribers}>Export CSV</Button></div><Table headers={["Email", "Status", "Joined", "Actions"]}>{data.subscribers.map((item) => <tr key={item.id} className="border-b border-slate-100"><td className="p-3 font-medium">{item.email}</td><td className="p-3"><Badge variant="success">{item.status ?? "active"}</Badge></td><td className="p-3">{new Date(item.created_at).toLocaleDateString()}</td><td className="p-3"><Button type="button" variant="danger" disabled={busy === item.id} onClick={() => mutate({ action: "delete", table: "subscribers", id: item.id })}>Delete</Button></td></tr>)}</Table>{data.subscribers.length === 0 ? <EmptyState title="No subscribers yet" /> : null}</Card> : null}
         {page === "Site Content" ? <div className="mt-2 space-y-6"><Link href="/admin/gallery" className="flex items-center gap-4 rounded-xl border border-[var(--admin-border)] bg-white p-5 transition hover:border-[var(--admin-green)] hover:bg-emerald-50"><ImageIcon className="text-[var(--admin-green)]" /><span><strong className="block">Manage photos in Gallery</strong><span className="text-sm text-[var(--admin-muted)]">View and manage page images in one place.</span></span></Link>{groupedSections.map(([group, sections]) => <section key={group}><h2 className="mb-3 text-lg font-bold text-[var(--admin-green-dark)]">{group}</h2><div className="grid gap-4 xl:grid-cols-2">{sections.filter((section) => section.section_key !== "gallery_content").map((section) => <div key={section.section_key} id={section.section_key}><SectionEditor section={section} busy={busy === section.section_key} onSave={(values) => mutate({ action: "save-section", sectionKey: section.section_key, ...values })} /></div>)}</div></section>)}</div> : null}
-    {page === "Gallery" ? <GalleryPanel sections={data.sections} sectionsError={dataError} busy={busy} onMutate={mutate} /> : null}
+    {page === "Gallery" ? <GalleryPanel sections={data.sections} sectionsError={dataError} busy={busy} onMutate={mutateAndReport} /> : null}
         {["Services", "Testimonies", "Settings"].includes(page) ? <Card className="mt-2" title={page}><EmptyState title={`${page} panel`} description="This panel is ready for its feature work." /></Card> : null}
       </div>
     </main>
@@ -195,8 +228,8 @@ function DashboardHome({ displayName, date, data, loading, error, quotesNew, unr
   </section>;
 }
 
-function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: Section[]; sectionsError: string; busy: string; onMutate: (payload: Record<string, unknown>) => Promise<void> }) {
-  const [gallerySections, setGallerySections] = useState(sections);
+function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: Section[]; sectionsError: string; busy: string; onMutate: (payload: Record<string, unknown>) => Promise<{ ok: boolean; data?: DashboardData; error?: string }> }) {
+  const [localGallerySections, setLocalGallerySections] = useState<Section[]>([]);
   const router = useRouter();
   const gallerySearchParams = useSearchParams();
   const [filterPageOverride, setFilterPageOverride] = useState<string | null>(null);
@@ -215,10 +248,11 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
   const [newPhotoStatus, setNewPhotoStatus] = useState("");
   const [newPhotoError, setNewPhotoError] = useState("");
   const newPhotoInput = useRef<HTMLInputElement>(null);
+  const uploadInFlight = useRef(false);
   const [changeProgress, setChangeProgress] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
-  const activeSections = gallerySections;
+  const activeSections = localGallerySections.length ? localGallerySections : sections;
   const photos = activeSections.flatMap((section) => [...getSectionPhotos(section), ...getStaticPhotos().filter((photo) => photo.sectionKey === section.section_key)]);
   const gallerySection = activeSections.find((section) => section.section_key === "gallery_content");
   const galleryContent = gallerySection?.content;
@@ -247,7 +281,7 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
   async function savePhoto(photo: PhotoRef, change: { url?: string; alt?: string; remove?: boolean }, applyEverywhere = false) {
     const section = activeSections.find((item) => item.section_key === photo.sectionKey);
     if (!section || photo.locked) return;
-    const content = structuredClone(section.content);
+    const content = section.section_key === "gallery_content" ? prepareGalleryContent(section.content) : structuredClone(section.content);
     if (photo.key.startsWith("gallery-fallback:") && !galleryItems.length) {
       content.items = PUBLIC_GALLERY_FALLBACKS.map((item) => ({ ...item }));
     }
@@ -276,13 +310,29 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
     }
     setChangeProgress(`Updating ${section.label}…`);
     const result = await onMutate({ action: "save-section", sectionKey: section.section_key, label: section.label, isVisible: section.is_visible, content });
+    if (!result.ok) {
+      const error = result.error ?? `Could not save ${section.label}.`;
+      if (change.remove) setRemoveError(error);
+      else if (change.url !== undefined) setUploadError(error);
+      else setRemoveError(error);
+      setChangeProgress("");
+      return result;
+    }
+    const savedSection = result.data?.sections.find((item) => item.section_key === section.section_key);
+    if (!savedSection || JSON.stringify(savedSection.content) !== JSON.stringify(content)) {
+      const error = `Save could not be verified for ${section.label}; refreshed data does not match the requested change.`;
+      if (change.remove) setRemoveError(error); else setUploadError(error);
+      setChangeProgress("");
+      return { ok: false, error };
+    }
+    setLocalGallerySections(result.data!.sections);
     if (applyEverywhere && (change.url !== undefined || change.alt !== undefined || change.remove)) {
-      const duplicates = photos.filter((other) => other.url === photo.url && other.sectionKey !== photo.sectionKey);
+      const duplicates = photos.filter((other) => other.url === photo.url && other.key !== photo.key);
       for (const duplicate of duplicates) {
-        const otherSection = sections.find((item) => item.section_key === duplicate.sectionKey);
+        const otherSection = activeSections.find((item) => item.section_key === duplicate.sectionKey);
         if (!otherSection) continue;
         setChangeProgress(`Updating ${otherSection.label}…`);
-        const otherContent = structuredClone(otherSection.content);
+        const otherContent = otherSection.section_key === "gallery_content" ? prepareGalleryContent(otherSection.content) : structuredClone(otherSection.content);
         let target: unknown = otherContent;
         for (const part of duplicate.path.slice(0, -1)) target = Array.isArray(target) ? target[Number(part)] : (target as Record<string, unknown>)[part];
         const finalKey = duplicate.path.at(-1)!;
@@ -300,10 +350,13 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
           record["alt" in record ? "alt" : "imageAlt"] = change.alt;
         }
         try {
-          const response = await fetch("/api/admin/mutate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save-section", sectionKey: otherSection.section_key, label: otherSection.label, isVisible: otherSection.is_visible, content: otherContent }) });
-          if (!response.ok) throw new Error("Save failed");
-        } catch {
-          setUploadError(`Could not update shared photo in ${otherSection.label}.`);
+          const result = await onMutate({ action: "save-section", sectionKey: otherSection.section_key, label: otherSection.label, isVisible: otherSection.is_visible, content: otherContent });
+          if (!result.ok) throw new Error(result.error ?? "Save failed");
+          const verified = result.data?.sections.find((item) => item.section_key === otherSection.section_key);
+          if (!verified || JSON.stringify(verified.content) !== JSON.stringify(otherContent)) throw new Error("Refresh did not confirm the change.");
+          setLocalGallerySections(result.data!.sections);
+        } catch (error) {
+          setUploadError(`Could not update shared photo in ${otherSection.label}: ${error instanceof Error ? error.message : "Save failed."}`);
         }
       }
     }
@@ -323,26 +376,38 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
     const index = Number(photo.path.at(-1));
     const target = index + offset;
     if (target < 0 || target >= array.length) return;
-    const content = structuredClone(section.content);
+    const content = prepareGalleryContent(section.content);
     let nextArray: unknown = content;
     for (const part of arrayPath) nextArray = Array.isArray(nextArray) ? nextArray[Number(part)] : (nextArray as Record<string, unknown>)[part];
     if (!Array.isArray(nextArray)) return;
     [nextArray[target], nextArray[index]] = [nextArray[index], nextArray[target]];
-    await onMutate({ action: "save-section", sectionKey: section.section_key, label: section.label, isVisible: section.is_visible, content });
+    const result = await onMutate({ action: "save-section", sectionKey: section.section_key, label: section.label, isVisible: section.is_visible, content });
+    if (!result.ok) { setUploadError(result.error ?? "Gallery save failed."); return; }
+    const saved = result.data?.sections.find((item) => item.section_key === section.section_key);
+    if (!saved || JSON.stringify(saved.content) !== JSON.stringify(content)) { setUploadError("Gallery reorder could not be confirmed after refresh."); return; }
+    setLocalGallerySections(result.data!.sections);
   }
 
-  async function applySharedChange(change: { photo: PhotoRef; url?: string; alt?: string }) {
+  async function applySharedChange(change: { photo: PhotoRef; url?: string; alt?: string; remove?: boolean }) {
     const duplicates = photos.filter((item) => item.url === change.photo.url && item.key !== change.photo.key);
     for (const duplicate of duplicates) {
       if (duplicate.locked) { setUploadError(`Could not update locked photo in ${duplicate.section}.`); continue; }
       const otherSection = activeSections.find((item) => item.section_key === duplicate.sectionKey);
       if (!otherSection) continue;
       setChangeProgress(`Updating ${otherSection.label}…`);
-      const content = structuredClone(otherSection.content);
+      const content = otherSection.section_key === "gallery_content" ? prepareGalleryContent(otherSection.content) : structuredClone(otherSection.content);
       const pathParent = (path: string[]) => { let current: unknown = content; for (const part of path.slice(0, -1)) current = Array.isArray(current) ? current[Number(part)] : (current as Record<string, unknown>)[part]; return current; };
       const parent = pathParent(duplicate.path);
       const key = duplicate.path.at(-1)!;
-      if (change.url !== undefined) (parent as Record<string, unknown>)[key] = change.url;
+      if (change.remove) {
+        const indexAt = duplicate.path.findIndex((part) => /^\d+$/.test(part));
+        if (indexAt >= 0) {
+          const listPath = duplicate.path.slice(0, indexAt);
+          let list: unknown = content;
+          for (const part of listPath) list = Array.isArray(list) ? list[Number(part)] : (list as Record<string, unknown>)[part];
+          if (Array.isArray(list)) list.splice(Number(duplicate.path[indexAt]), 1);
+        }
+      } else if (change.url !== undefined) (parent as Record<string, unknown>)[key] = change.url;
       else if (change.alt !== undefined) {
         const record = duplicate.path.slice(-1)[0];
         if (["src", "image", "imageUrl", "posterImageUrl", "featurePoster"].includes(record)) {
@@ -351,17 +416,19 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
         }
       }
       try {
-        const response = await fetch("/api/admin/mutate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save-section", sectionKey: otherSection.section_key, label: otherSection.label, isVisible: otherSection.is_visible, content }) });
-        if (!response.ok) throw new Error();
+        const result = await onMutate({ action: "save-section", sectionKey: otherSection.section_key, label: otherSection.label, isVisible: otherSection.is_visible, content });
+        if (!result.ok) throw new Error(result.error ?? "Save failed.");
+        const verified = result.data?.sections.find((item) => item.section_key === otherSection.section_key);
+        if (!verified || JSON.stringify(verified.content) !== JSON.stringify(content)) throw new Error("Updated content was not confirmed after refresh.");
+        setLocalGallerySections(result.data!.sections);
       } catch { setUploadError(`Could not update shared photo in ${otherSection.label}.`); }
     }
     setChangeProgress("");
     setSelectedOverride(null);
   }
 
-  async function removePhoto(photo: PhotoRef, everywhere: boolean) {
-    const uses = photos.filter((item) => item.url === photo.url);
-    const targets = everywhere ? uses : uses.filter((item) => item.sectionKey === photo.sectionKey && item.key === photo.key);
+  async function removePhoto(photo: PhotoRef) {
+    const targets = photos.filter((item) => item.url === photo.url && item.sectionKey === "gallery_content");
     const groups = new Map<string, PhotoRef[]>();
     for (const item of targets) groups.set(item.sectionKey, [...(groups.get(item.sectionKey) ?? []), item]);
     setRemoveError("");
@@ -374,7 +441,7 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
         continue;
       }
       setChangeProgress(`Removing from ${section.label}…`);
-      const content = structuredClone(section.content);
+      const content = prepareGalleryContent(section.content);
       const arrayRemovals = removals.filter((item) => item.path.some((part) => /^\d+$/.test(part)));
       const directRemovals = removals.filter((item) => !item.path.some((part) => /^\d+$/.test(part)));
       for (const item of directRemovals) {
@@ -399,10 +466,11 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
         }
       }
       try {
-        const response = await fetch("/api/admin/mutate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save-section", sectionKey: section.section_key, label: section.label, isVisible: section.is_visible, content }) });
-        const result = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(result?.error ?? "Update failed.");
-        setGallerySections((current) => current.map((item) => item.section_key === sectionKey ? { ...item, content } : item));
+        const result = await onMutate({ action: "save-section", sectionKey: section.section_key, label: section.label, isVisible: section.is_visible, content });
+        if (!result.ok) throw new Error(result.error ?? "Update failed.");
+        const verified = result.data?.sections.find((item) => item.section_key === sectionKey);
+        if (!verified || JSON.stringify(verified.content) !== JSON.stringify(content)) throw new Error("Updated Gallery Content was not confirmed after refresh.");
+        setLocalGallerySections(result.data!.sections);
       } catch (error) {
         failed = true;
         setRemoveError(`Could not update ${section.label}: ${error instanceof Error ? error.message : "Update failed."}`);
@@ -451,7 +519,8 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
   }
 
   async function uploadNewPhoto() {
-    if (!newPhotoFile || uploading) return;
+    if (!newPhotoFile || uploadInFlight.current) return;
+    uploadInFlight.current = true;
     setUploading(true);
     setNewPhotoError("");
     setNewPhotoStatus("Preparing upload…");
@@ -464,16 +533,21 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
       if (!uploaded.ok) throw new Error("Upload failed. You can retry this file.");
       const section = activeSections.find((item) => item.section_key === "gallery_content");
       if (!section) throw new Error("Gallery Content is unavailable. You can retry this file.");
-      const content = structuredClone(section.content);
+      const content = prepareGalleryContent(section.content);
       const existing: unknown[] = Array.isArray(content.items) && content.items.length ? content.items : PUBLIC_GALLERY_FALLBACKS.map((item) => ({ ...item }));
       const newItem = { src: result.publicUrl, alt: "Shalom Logistics gallery photo", category: "Other Services", type: "image", isVisible: true };
       const nextItems = [...existing, newItem];
       content.items = nextItems;
-      await onMutate({ action: "save-section", sectionKey: section.section_key, label: section.label, isVisible: section.is_visible, content });
+      content.categories = [...GALLERY_CATEGORIES];
+      const saveResult = await onMutate({ action: "save-section", sectionKey: section.section_key, label: section.label, isVisible: section.is_visible, content });
+      if (!saveResult.ok) throw new Error(saveResult.error ?? "Gallery update failed.");
+      const verifiedSection = saveResult.data?.sections.find((item) => item.section_key === section.section_key);
+      const verifiedItems = Array.isArray(verifiedSection?.content.items) ? verifiedSection.content.items : [];
+      if (!verifiedSection || !verifiedItems.some((item) => item && typeof item === "object" && (item as Record<string, unknown>).src === result.publicUrl)) throw new Error("The image uploaded, but refreshed Gallery Content did not include the new photo.");
+      setLocalGallerySections(saveResult.data!.sections);
       const uploadedPhoto: PhotoRef = { key: `gallery-upload:${result.key ?? result.publicUrl}`, page: "Gallery page", section: "Gallery · Other Services", url: result.publicUrl, alt: "Shalom Logistics gallery photo", caption: "Shalom Logistics gallery photo", locked: false, path: ["items", String(nextItems.length - 1), "src"], sectionKey: "gallery_content" };
       photos.unshift(uploadedPhoto);
-      setGallerySections((current) => current.map((item) => item.section_key === section.section_key ? { ...item, content } : item));
-      setGallerySections((current) => current.map((item) => item.section_key === section.section_key ? { ...item, content } : item));
+      setLocalGallerySections(saveResult.data!.sections);
       setNewPhotoStatus(`Photo added to Gallery Content|${result.publicUrl}`);
       setNewPhotoFile(null);
       if (newPhotoInput.current) newPhotoInput.current.value = "";
@@ -483,6 +557,7 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
       setNewPhotoError(error instanceof Error ? error.message : "Upload failed. You can retry this file.");
       setNewPhotoStatus("");
     } finally {
+      uploadInFlight.current = false;
       setUploading(false);
     }
   }
@@ -503,7 +578,7 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
     {filtered.length ? <div className="space-y-6">{[...new Set(filtered.map((photo) => photo.section))].map((sectionName) => <section key={sectionName}><h2 className="mb-3 text-lg font-bold">{sectionName}</h2><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.filter((photo) => photo.section === sectionName).map((photo) => { const uses = photos.filter((item) => item.url === photo.url); const usage = usageLocations(uses); const sharedPages = [...new Set(uses.flatMap((item) => item.page === "Shared" ? sharedLocationPages(item) : [item.page]))]; const cardId = photo.key.startsWith("gallery-upload:") ? "uploaded-gallery-photo" : undefined; return <article id={cardId} key={photo.key} className="overflow-hidden rounded-xl border border-[var(--admin-border)] bg-white shadow-sm"><button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="relative block aspect-[16/10] w-full bg-slate-100 text-left"><Image src={photo.url} alt={photo.alt} fill unoptimized sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw" className="object-cover" />{photo.locked ? <span className="absolute left-2 top-2"><Badge><LockKeyhole size={12} className="mr-1" />Managed by developer</Badge></span> : null}</button><div className="space-y-2 p-4"><p className="font-bold">{photo.section} · {photo.page}</p>{sharedPages.length > 1 ? <span title={`Appears on: ${usage}`}><Badge variant="gold">Shared: appears on {sharedPages.length} pages · {sharedPages.join(", ")}</Badge></span> : null}<p className="text-sm text-[var(--admin-muted)]">{photo.alt || photo.caption || "No alt text"}</p><p className="text-xs text-[var(--admin-muted)]">Used on: {usage}</p><div className="flex items-center justify-between"><button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="text-sm font-semibold text-[var(--admin-green-dark)] underline">View details</button>{photo.sectionKey === "gallery_content" && !photo.locked ? <span className="flex gap-2"><button type="button" aria-label="Move photo up" onClick={() => void moveGalleryPhoto(photo, -1)}>↑</button><button type="button" aria-label="Move photo down" onClick={() => void moveGalleryPhoto(photo, 1)}>↓</button></span> : null}</div></div></article>; })}</div></section>)}</div> : <EmptyState title={effectivePage === "All pages" ? "No photos found" : `No photos on ${effectivePage}`} description="Try another page or adjust the current filters." />}
     {selected ? <div className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto bg-black/60 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}><section role="dialog" aria-modal="true" aria-labelledby="photo-dialog-title" className="w-full max-w-3xl rounded-2xl bg-white p-5 shadow-2xl"><div className="flex items-center justify-between"><h2 id="photo-dialog-title" className="text-xl font-bold">Photo details</h2><button type="button" onClick={() => setSelected(null)} aria-label="Close photo details">×</button></div><div className="relative mt-4 h-[50vh] w-full"><Image src={selected.url} alt={selected.alt} fill unoptimized sizes="(max-width: 768px) 100vw, 768px" className="rounded-xl bg-slate-100 object-contain" /></div><p className="mt-3 break-all text-xs text-[var(--admin-muted)]">{selected.url}</p><p className="mt-2 text-sm">Used in: {photos.filter((photo) => photo.url === selected.url).map((photo) => `${photo.page} / ${photo.section}`).join("; ")}</p>{selected.locked ? <div className="mt-4"><LockedField /></div> : <><label className="mt-4 block text-sm font-semibold">Alt text / caption<input value={altText} onChange={(event) => setAltText(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><div className="mt-4 flex flex-wrap gap-2"><Button type="button" onClick={() => { if (photos.filter((photo) => photo.url === selected.url).length > 1) setPendingAltSave({ photo: selected, alt: altText }); else void savePhoto(selected, { alt: altText }); }}>Save alt text</Button><label className="inline-flex cursor-pointer items-center rounded-lg border border-[var(--admin-border)] px-4 py-2 text-sm font-semibold">{uploading ? "Uploading…" : "Replace image"}<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploading} onChange={(event) => void upload(event.target.files?.[0])} className="hidden" /></label><Button type="button" variant="danger" onClick={() => setPendingDelete(selected)}>Remove image</Button></div></>}</section></div> : null}
     {replacementUpload ? <ConfirmDialog open title="Replace this image?" description="Replacing an image changes the CMS reference. The uploaded original will remain in storage." confirmLabel="Replace image" onCancel={() => setReplacementUpload(null)} onConfirm={() => { const change = replacementUpload; setReplacementUpload(null); if (photos.filter((photo) => photo.url === change.photo.url).length > 1) setPendingChange(change); else void savePhoto(change.photo, { url: change.url }); }} /> : null}
-    {pendingDelete ? (() => { const uses = photos.filter((item) => item.url === pendingDelete.url); const section = activeSections.find((item) => item.section_key === pendingDelete.sectionKey); const sectionUses = photos.filter((item) => item.sectionKey === pendingDelete.sectionKey); const warnLast = Boolean(section && sectionUses.length <= 1); const locationList = usageLocations(uses); return <ConfirmDialog open title="Remove this photo from the website?" description={`${warnLast ? `This is the last photo in ${pendingDelete.section}; removing it may leave that section empty. ` : ""}This photo will stop appearing on: ${locationList}. The image file itself is kept, so it can be added back later.`} confirmLabel={uses.length > 1 ? "Remove from everywhere it appears" : "Remove from website"} cancelLabel="Cancel" secondaryLabel={uses.length > 1 ? `Remove only from ${pendingDelete.page} / ${pendingDelete.section}` : undefined} onSecondary={uses.length > 1 ? () => { const photo = pendingDelete; setPendingDelete(null); void removePhoto(photo, false); } : undefined} onConfirm={() => { const photo = pendingDelete; setPendingDelete(null); void removePhoto(photo, uses.length > 1); }} onCancel={() => setPendingDelete(null)} />; })() : null}
+    {pendingDelete ? (() => { const uses = photos.filter((item) => item.url === pendingDelete.url && item.sectionKey === "gallery_content"); const sectionUses = photos.filter((item) => item.sectionKey === "gallery_content"); const warnLast = sectionUses.length <= 1; const locationList = usageLocations(uses); return <ConfirmDialog open title="Remove this photo from the website?" description={`${warnLast ? "This is the last Gallery Content photo; removing it will leave that public section empty. " : ""}This photo will stop appearing on: ${locationList}. The image file itself is kept, so it can be added back later.`} confirmLabel="Remove from Gallery page" cancelLabel="Cancel" onConfirm={() => { const photo = pendingDelete; setPendingDelete(null); void removePhoto(photo); }} onCancel={() => setPendingDelete(null)} />; })() : null}
     {pendingAltSave ? <ConfirmDialog open title="Apply shared photo change?" description={`This photo also appears on: ${photos.filter((photo) => photo.url === pendingAltSave.photo.url).map((photo) => photo.page).filter((page, index, list) => list.indexOf(page) === index).join(", ")}. Apply this change there too?`} confirmLabel="Yes, apply everywhere" cancelLabel="No, only this page" onCancel={() => { const change = pendingAltSave; setPendingAltSave(null); void savePhoto(change.photo, { alt: change.alt }); }} onConfirm={() => { const change = pendingAltSave; setPendingAltSave(null); void applySharedChange(change); }} /> : null}
     {pendingChange ? <ConfirmDialog open title="Apply shared photo change?" description={`This photo also appears on: ${photos.filter((photo) => photo.url === pendingChange.photo.url).map((photo) => photo.page).filter((page, index, list) => list.indexOf(page) === index).join(", ")}. Apply this change there too?`} confirmLabel="Yes, apply everywhere" cancelLabel="No, only this page" onCancel={() => { const change = pendingChange; setPendingChange(null); if (change.url) void savePhoto(change.photo, { url: change.url }); }} onConfirm={() => { const change = pendingChange; setPendingChange(null); void applySharedChange(change); }} /> : null}
     <section className="rounded-2xl border border-[var(--admin-border)] bg-white p-5 shadow-sm sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Add photo to Gallery</h2><span className="mt-2 inline-flex rounded-full bg-[var(--admin-gold-light)] px-3 py-1 text-xs font-semibold text-[var(--admin-ink)]">Adding to: Gallery Content (shown on the public Gallery page)</span></div></div>
