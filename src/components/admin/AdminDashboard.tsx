@@ -7,6 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LockKeyhole, Menu, Search, X, ChevronDown, LayoutDashboard, Truck, Users, MessageSquare, Settings, Quote, Image as ImageIcon, Mail } from "lucide-react";
 import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, Input, LoadingState, Table, Toast, Tabs } from "@/components/admin/ui";
 import { FALLBACK_ITEMS as PUBLIC_GALLERY_FALLBACKS } from "@/components/gallery/GalleryClient";
+import ServicesPanel from "@/components/admin/ServicesPanel";
 
 type SearchInputHandle = HTMLInputElement;
 
@@ -216,7 +217,7 @@ export default function AdminDashboard({ page, ownerEmail, displayName, initialD
         {page === "Settings" && searchParams.get("panel") === "newsletter" ? <NewsletterPlaceholder /> : null}
         {page === "Site Content" ? <div className="mt-2 space-y-6"><Link href="/admin/gallery" className="flex items-center gap-4 rounded-xl border border-[var(--admin-border)] bg-white p-5 transition hover:border-[var(--admin-green)] hover:bg-emerald-50"><ImageIcon className="text-[var(--admin-green)]" /><span><strong className="block">Manage photos in Gallery</strong><span className="text-sm text-[var(--admin-muted)]">View and manage page images in one place.</span></span></Link>{groupedSections.map(([group, sections]) => <section key={group}><h2 className="mb-3 text-lg font-bold text-[var(--admin-green-dark)]">{group}</h2><div className="grid gap-4 xl:grid-cols-2">{sections.filter((section) => section.section_key !== "gallery_content").map((section) => <div key={section.section_key} id={section.section_key}><SectionEditor section={section} busy={busy === section.section_key} onSave={(values) => mutate({ action: "save-section", sectionKey: section.section_key, ...values })} /></div>)}</div></section>)}</div> : null}
     {page === "Gallery" ? <GalleryPanel sections={data.sections} sectionsError={dataError} busy={busy} onMutate={mutateAndReport} /> : null}
-        {page === "Services" ? <ServicesMaster sections={data.sections} busy={busy} onMutate={mutateAndReport} /> : null}
+        {page === "Services" ? <ServicesPanel sections={data.sections} busy={busy === "loading"} onSave={mutateAndReport} /> : null}
         {page === "Testimonies" ? <TestimoniesMaster sections={data.sections} busy={busy} onMutate={mutateAndReport} /> : null}
         {page === "Settings" ? <Card className="mt-2" title="Settings"><EmptyState title="Settings panel" description="Manage shared site settings." /></Card> : null}
       </div>
@@ -711,6 +712,7 @@ function jsonEqual(left: unknown, right: unknown): boolean {
   return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
 }
 
+/*
 function ServicesMaster({ sections, busy, onMutate }: { sections: Section[]; busy: string; onMutate: CmsSectionMutation }) {
   const categoriesSection = sections.find((section) => section.section_key === "services_categories");
   const detailsSection = sections.find((section) => section.section_key === "services_detail");
@@ -848,6 +850,7 @@ function ServicesMaster({ sections, busy, onMutate }: { sections: Section[]; bus
       {subserviceDelete ? <ConfirmDialog open title="Remove subservice?" description={`Remove ${String(subserviceObjects(subserviceDelete.category)[subserviceDelete.index]?.name ?? "this subservice")} from this category and its detail/quote lists?`} confirmLabel="Remove subservice" onCancel={() => setSubserviceDelete(null)} onConfirm={confirmDeleteSubservice} /> : null}
   </div>;
 }
+*/
 
 function TestimoniesMaster({ sections, busy, onMutate }: { sections: Section[]; busy: string; onMutate: CmsSectionMutation }) {
   const homeSection = sections.find((section) => section.section_key === "home_testimonials");
