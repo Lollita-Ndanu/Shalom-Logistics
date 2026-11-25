@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -33,14 +32,15 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-neutral-950 text-white px-4">
+    <main className="flex min-h-screen items-center justify-center bg-[var(--admin-page)] px-4 py-10 text-[var(--admin-ink)]">
       <form
         onSubmit={handleLogin}
-        className="w-full max-w-md space-y-5 rounded-2xl border border-neutral-800 bg-neutral-900 p-8 shadow-xl"
+        className="w-full max-w-md space-y-5 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-8 shadow-xl"
       >
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Shalom Movers Admin</h1>
-          <p className="text-sm text-neutral-400 mt-1">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--admin-green)]">Shalom Logistics</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight">Admin Panel</h1>
+          <p className="mt-1 text-sm text-[var(--admin-muted)]">
             Sign in with your owner credentials to manage site content and quotes.
           </p>
         </div>
@@ -52,7 +52,7 @@ export default function AdminLoginPage() {
         )}
 
         <div className="space-y-1.5">
-          <label htmlFor="email" className="block text-sm font-medium text-neutral-300">
+          <label htmlFor="email" className="block text-sm font-medium text-[var(--admin-ink)]">
             Email
           </label>
           <input
@@ -62,12 +62,12 @@ export default function AdminLoginPage() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
+            className="w-full rounded-lg border border-[var(--admin-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--admin-ink)] focus:border-[var(--admin-green)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-green)]/20"
           />
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="password" className="block text-sm font-medium text-neutral-300">
+          <label htmlFor="password" className="block text-sm font-medium text-[var(--admin-ink)]">
             Password
           </label>
           <input
@@ -77,14 +77,14 @@ export default function AdminLoginPage() {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
+            className="w-full rounded-lg border border-[var(--admin-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--admin-ink)] focus:border-[var(--admin-green)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-green)]/20"
           />
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-neutral-950 hover:bg-emerald-400 disabled:opacity-50 transition"
+          className="w-full rounded-lg bg-[var(--admin-gold)] px-4 py-2.5 text-sm font-semibold text-[var(--admin-ink)] transition hover:bg-[var(--admin-gold-light)] disabled:opacity-50"
         >
           {loading ? "Signing in..." : "Sign In"}
         </button>

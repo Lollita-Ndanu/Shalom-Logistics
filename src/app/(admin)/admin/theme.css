@@ -1,0 +1,14 @@
+.admin-theme {
+  --admin-green: var(--color-jungle);
+  --admin-green-dark: var(--color-jungle-dark);
+  --admin-green-light: var(--color-jungle-light);
+  --admin-gold: var(--color-gold);
+  --admin-gold-light: var(--color-gold-light);
+  --admin-gold-dark: var(--color-gold-dark);
+  --admin-page: #f7f8f6;
+  --admin-surface: #ffffff;
+  --admin-sidebar: #101714;
+  --admin-ink: #17211c;
+  --admin-muted: #58645d;
+  --admin-border: #dce3de;
+}

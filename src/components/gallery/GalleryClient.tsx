@@ -8,7 +8,7 @@ type GalleryItem = { src: string; alt: string; category: string; type?: "image" 
 type GalleryContent = { heading: string; intro: string; categories: string[]; items: GalleryItem[] };
 const DEFAULT_CATEGORIES = ["Home Moving", "Office Moving", "Transport & Logistics", "Cleaning", "Other Services"];
 
-const FALLBACK_ITEMS: GalleryItem[] = [
+export const FALLBACK_ITEMS: GalleryItem[] = [
   { src: "/images/IMG_20251220_105405.jpg", alt: "Shalom Logistics crew preparing a household move", category: "Home Moving" },
   { src: "/images/IMG_20251220_105328.jpg", alt: "Moving crew and truck ready for a journey", category: "Transport & Logistics" },
   { src: "/images/IMG_20251220_105330.jpg", alt: "Shalom Logistics vehicle prepared for specialist delivery", category: "Transport & Logistics" },
@@ -33,6 +33,10 @@ const FALLBACK_ITEMS: GalleryItem[] = [
 
 function isVideo(item: GalleryItem) {
   return item.type === "video" || /\.(mp4|webm|mov)(?:$|\?)/i.test(item.src);
+}
+
+function isRemoteImage(src: string) {
+  return /^https?:\/\//i.test(src);
 }
 
 export default function GalleryClient({ content }: { content: GalleryContent }) {
@@ -83,7 +87,7 @@ export default function GalleryClient({ content }: { content: GalleryContent }) 
           {visibleItems.map((item, index) => <button key={`${item.src}-${index}`} type="button" onClick={() => setSelectedIndex(index)} aria-label={`Enlarge ${item.alt}`} className="group relative aspect-[4/3] overflow-hidden rounded-2xl bg-jungle-dark/10 text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gold">
             {isVideo(item)
               ? <video src={item.src} aria-label={item.alt} autoPlay muted loop playsInline preload="metadata" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-              : <Image src={item.src} alt={item.alt} fill sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 33vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />}
+              : <Image src={item.src} alt={item.alt} fill unoptimized={isRemoteImage(item.src)} sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 33vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />}
             <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-5 pb-4 pt-12 text-sm font-semibold text-white">{item.category}</span>
           </button>)}
         </div>
@@ -95,7 +99,7 @@ export default function GalleryClient({ content }: { content: GalleryContent }) 
         <div className="flex h-full w-full max-w-6xl flex-col items-center justify-center gap-3" onClick={(event) => event.stopPropagation()}>
           {isVideo(selectedItem)
             ? <video key={selectedItem.src} src={selectedItem.src} autoPlay muted loop playsInline controls className="max-h-[82vh] max-w-full rounded-lg object-contain" />
-            : <Image key={selectedItem.src} src={selectedItem.src} alt={selectedItem.alt} width={1800} height={1200} priority className="max-h-[82vh] w-auto max-w-full rounded-lg object-contain" />}
+             : <Image key={selectedItem.src} src={selectedItem.src} alt={selectedItem.alt} width={1800} height={1200} unoptimized={isRemoteImage(selectedItem.src)} priority className="max-h-[82vh] w-auto max-w-full rounded-lg object-contain" />}
           <p className="text-center text-sm text-white/80">{selectedItem.alt} <span className="mx-2 text-white/40">·</span>{selectedItem.category} <span className="mx-2 text-white/40">·</span>{selectedIndex! + 1} / {visibleItems.length}</p>
         </div>
         <button type="button" onClick={(event) => { event.stopPropagation(); step(1); }} aria-label="Next image" className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white transition hover:bg-white/20 sm:right-6"><ChevronRight className="h-7 w-7" /></button>
