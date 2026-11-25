@@ -718,36 +718,118 @@ function ServicesMaster({ sections, busy, onMutate }: { sections: Section[]; bus
   const items = categoriesSection && Array.isArray(categoriesSection.content.items) ? categoriesSection.content.items as Record<string, unknown>[] : [];
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null);
   const [draft, setDraft] = useState<Record<string, unknown>>({});
-  const [warningOpen, setWarningOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Record<string, unknown> | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState("All categories");
+  const [newSubservice, setNewSubservice] = useState("");
+  const [newSubserviceDescription, setNewSubserviceDescription] = useState("");
+  const [subserviceDelete, setSubserviceDelete] = useState<{ category: Record<string, unknown>; index: number } | null>(null);
   const [error, setError] = useState("");
   const [working, setWorking] = useState(false);
 
-  function edit(item: Record<string, unknown>) { setEditing(item); setDraft(structuredClone(item)); setError(""); }
-  function reorderList(item: Record<string, unknown>, direction: -1 | 1) {
-    const next = [...items];
-    const index = next.findIndex((row) => row.slug === item.slug);
-    const target = index + direction;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
-    setEditing({ slug: "__reorder__" });
-    setDraft({ reorder: next });
-    setWarningOpen(true);
+  const subserviceObjects = (item: Record<string, unknown>) => Array.isArray(item.subServices) ? item.subServices.map((value) => typeof value === "string" ? { name: value, isVisible: true } : value as Record<string, unknown>) : [];
+  const edit = (item: Record<string, unknown>) => { setEditing(item); setDraft(structuredClone(item)); setFormTab("category"); setError(""); };
+  async function persistSubservices(category: Record<string, unknown>, nextServices: Record<string, unknown>[]) {
+    if (!categoriesSection || !detailsSection) { setError("The category and detail service lists are unavailable."); return; }
+    setWorking(true); setError("");
+    const categories = items.map((row) => row.slug === category.slug ? { ...row, subServices: nextServices } : row);
+    const details = Array.isArray(detailsSection.content.items) ? detailsSection.content.items as Record<string, unknown>[] : [];
+    const detailServices = details.map((row) => row.slug === category.slug ? { ...row, services: nextServices.map((service, index) => ({
+      ...(Array.isArray(row.services) ? row.services[index] as Record<string, unknown> : {}),
+      id: String((Array.isArray(row.services) ? (row.services[index] as Record<string, unknown> | undefined)?.id : undefined) ?? `${String(category.slug)}-sub-${index + 1}`),
+      name: service.name,
+      description: service.description ?? "",
+      isVisible: service.isVisible !== false,
+    })) } : row);
+    const existingHome = Array.isArray(homeSection?.content.items) ? homeSection.content.items as Record<string, unknown>[] : [];
+    const allowedNames = new Set(nextServices.map((service) => String(service.name)));
+    const homeItems = existingHome.filter((entry) => entry.categorySlug !== category.slug || !entry.subservice || allowedNames.has(String(entry.subservice)));
+    const updates: { section: Section; content: Record<string, unknown> }[] = [
+      { section: categoriesSection, content: { ...categoriesSection.content, items: categories } },
+      { section: detailsSection, content: { ...detailsSection.content, items: detailServices } },
+      ...(homeSection ? [{ section: homeSection, content: { ...homeSection.content, items: homeItems } }] : []),
+    ];
+    try {
+      for (const update of updates) {
+        setError(`Updating ${update.section.label}…`);
+        const result = await onMutate({ action: "save-section", sectionKey: update.section.section_key, label: update.section.label, isVisible: update.section.is_visible, content: update.content });
+        if (!result.ok) throw new Error(`Could not update ${update.section.label}: ${result.error ?? "save failed"}`);
+        const stored = result.data?.sections.find((section) => section.section_key === update.section.section_key);
+        if (!stored || !jsonEqual(stored.content, update.content)) throw new Error(`Could not confirm update on ${update.section.label}.`);
+      }
+      setDraft((current) => ({ ...current, subservicesDraft: { ...((current.subservicesDraft as Record<string, unknown> | undefined) ?? {}), [String(category.slug)]: nextServices } }));
+      setError("Subservices updated across the existing service lists.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save subservices."); }
+    finally { setWorking(false); }
   }
-  async function apply() {
-      if (!categoriesSection || !detailsSection) return setError("Service CMS sections are unavailable.");
-    if (editing?.slug !== "__reorder__" && (!String(draft.name ?? "").trim() || !String(draft.summary ?? "").trim())) return setError("Service title and description are required.");
+  function addSubservice(category: Record<string, unknown>) {
+    const name = newSubservice.trim();
+    if (!name) { setError("Subservice name is required."); return; }
+    const current = (draft.subservicesDraft as Record<string, unknown> | undefined)?.[String(category.slug)];
+    const list = Array.isArray(current) ? current as Record<string, unknown>[] : subserviceObjects(category);
+    void persistSubservices(category, [...list, { name, description: newSubserviceDescription.trim(), isVisible: true }]);
+    setNewSubservice(""); setNewSubserviceDescription("");
+  }
+  function editSubservice(category: Record<string, unknown>, index: number, field: "name" | "description", value: string) {
+    const current = (draft.subservicesDraft as Record<string, unknown> | undefined)?.[String(category.slug)];
+    const list = Array.isArray(current) ? [...current as Record<string, unknown>[]] : subserviceObjects(category);
+    list[index] = { ...list[index], [field]: value };
+    setDraft((previous) => ({ ...previous, subservicesDraft: { ...((previous.subservicesDraft as Record<string, unknown> | undefined) ?? {}), [String(category.slug)]: list } }));
+  }
+  function deleteSubservice(category: Record<string, unknown>, index: number) { setSubserviceDelete({ category, index }); }
+  function confirmDeleteSubservice() {
+    if (!subserviceDelete) return;
+    const { category, index } = subserviceDelete;
+    setSubserviceDelete(null);
+    const current = (draft.subservicesDraft as Record<string, unknown> | undefined)?.[String(category.slug)];
+    const list = Array.isArray(current) ? current as Record<string, unknown>[] : subserviceObjects(category);
+    void persistSubservices(category, list.filter((_, at) => at !== index));
+  }
+  function saveSubserviceEdits(category: Record<string, unknown>) {
+    const current = (draft.subservicesDraft as Record<string, unknown> | undefined)?.[String(category.slug)];
+    if (Array.isArray(current)) void persistSubservices(category, current as Record<string, unknown>[]);
+  }
+  async function applyCategory() {
+    if (!categoriesSection || !detailsSection) { setError("Service CMS sections are unavailable."); return; }
+    const name = String(draft.name ?? "").trim();
+    const summary = String(draft.summary ?? "").trim();
+    if (!name || !summary) { setError("Category name and description are required."); return; }
+    setWorking(true); setError("");
+    const nextCategories = items.map((item) => item.slug === editing?.slug ? { ...item, name, summary, image: draft.image, isVisible: draft.isVisible } : item);
+    const detailItems = Array.isArray(detailsSection.content.items) ? detailsSection.content.items as Record<string, unknown>[] : [];
+    const nextDetails = detailItems.map((item) => item.slug === editing?.slug ? { ...item, title: name, intro: summary, image: draft.image, isVisible: draft.isVisible } : item);
+    const homeItems = Array.isArray(homeSection?.content.items) ? homeSection.content.items as Record<string, unknown>[] : [];
+    const nextHome = homeItems.map((item) => item.categorySlug === editing?.slug ? { ...item, categoryName: name, detail: summary, image: draft.image } : item);
+    const updates: { section: Section; content: Record<string, unknown> }[] = [
+      { section: categoriesSection, content: { ...categoriesSection.content, items: nextCategories } },
+      { section: detailsSection, content: { ...detailsSection.content, items: nextDetails } },
+      ...(homeSection ? [{ section: homeSection, content: { ...homeSection.content, items: nextHome } }] : []),
+    ];
+    try {
+      for (const update of updates) {
+        setError(`Updating ${update.section.label}…`);
+        const result = await onMutate({ action: "save-section", sectionKey: update.section.section_key, label: update.section.label, isVisible: update.section.is_visible, content: update.content });
+        if (!result.ok) throw new Error(`Could not update ${update.section.label}: ${result.error ?? "save failed"}`);
+        const stored = result.data?.sections.find((section) => section.section_key === update.section.section_key);
+        if (!stored || !jsonEqual(stored.content, update.content)) throw new Error(`Could not confirm update on ${update.section.label}.`);
+      }
+      setEditing(null); setDraft({}); setError("Category updated across existing service lists.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Category update failed."); }
+    finally { setWorking(false); }
+  }
+
+  async function applyCategory() {
+    if (!categoriesSection || !detailsSection) return setError("Service CMS sections are unavailable.");
+    if (!String(draft.name ?? "").trim() || !String(draft.summary ?? "").trim()) return setError("Service category name and description are required.");
     setWorking(true); setError("");
     try {
-      const nextCategories = editing?.slug === "__reorder__" && Array.isArray(draft.reorder) ? draft.reorder as Record<string, unknown>[] : items.map((item) => item.slug === editing?.slug ? { ...item, ...draft } : item);
+      const nextCategories = items.map((item) => item.slug === editing?.slug ? { ...item, ...draft } : item);
       const details = Array.isArray(detailsSection.content.items) ? detailsSection.content.items as Record<string, unknown>[] : [];
-      const nextDetails = editing?.slug === "__reorder__" && Array.isArray(draft.reorder) ? reorderBySlugs(details, draft.reorder as Record<string, unknown>[]) : details.map((item) => item.slug === editing?.slug ? { ...item, title: draft.name, intro: draft.summary, image: draft.image, isVisible: draft.isVisible } : item);
+      const nextDetails = details.map((item) => item.slug === editing?.slug ? { ...item, title: draft.name, intro: draft.summary, image: draft.image, isVisible: draft.isVisible } : item);
       const homeItems = homeSection && Array.isArray(homeSection.content.items) ? homeSection.content.items as Record<string, unknown>[] : [];
-      const nextHomeItems = editing?.slug === "__reorder__" && Array.isArray(draft.reorder) ? reorderBySlugs(homeItems, draft.reorder as Record<string, unknown>[], "categorySlug") : homeItems.map((item) => item.categorySlug === editing?.slug ? { ...item, categoryName: draft.name, detail: draft.summary, image: draft.image } : item);
+      const nextHomeItems = homeItems.map((item) => item.categorySlug === editing?.slug ? { ...item, categoryName: draft.name, detail: draft.summary, image: draft.image } : item);
       const updates: { section: Section; content: Record<string, unknown> }[] = [
         { section: categoriesSection, content: { ...categoriesSection.content, items: nextCategories } },
         { section: detailsSection, content: { ...detailsSection.content, items: nextDetails } },
-        ...(homeSection && homeItems.length ? [{ section: homeSection, content: { ...homeSection.content, items: nextHomeItems } }] : []),
+        ...(homeSection ? [{ section: homeSection, content: { ...homeSection.content, items: nextHomeItems } }] : []),
       ];
       for (const update of updates) {
         const result = await onMutate({ action: "save-section", sectionKey: update.section.section_key, label: update.section.label, isVisible: update.section.is_visible, content: update.content });
@@ -755,16 +837,15 @@ function ServicesMaster({ sections, busy, onMutate }: { sections: Section[]; bus
         const confirmed = result.data?.sections.find((row) => row.section_key === update.section.section_key);
         if (!confirmed || !jsonEqual(confirmed.content, update.content)) throw new Error(`Could not confirm update on ${update.section.label}.`);
       }
-      setEditing(null); setWarningOpen(false);
+      setEditing(null); setDraft({});
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Service update failed."); }
     finally { setWorking(false); }
   }
 
   if (busy === "loading") return <LoadingState label="Loading services…" />;
-  return <div className="mt-2 space-y-4">{error ? <ErrorState title="Service update failed" description={error} /> : null}<Card title="Services master list"><p className="mb-4 text-sm text-[var(--admin-muted)]">Service categories appear on Home, Services, service detail pages, and Quote.</p><p className="mb-4"><Badge variant="gold">Adding/deleting route categories: Backend pending</Badge></p>{items.length ? <div className="grid gap-4 lg:grid-cols-2">{items.map((item, index) => <article key={String(item.slug)} className="flex gap-4 rounded-xl border border-[var(--admin-border)] p-4"><div className="relative h-24 w-28 shrink-0 overflow-hidden rounded-lg bg-slate-100">{typeof item.image === "string" ? <Image src={item.image} alt={String(item.imageAlt ?? item.name ?? "Service image")} fill unoptimized className="object-cover" /> : null}</div><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold">{String(item.name ?? "Untitled service")}</h3><p className="mt-1 line-clamp-2 text-sm text-[var(--admin-muted)]">{String(item.summary ?? "")}</p></div><Badge variant={item.isVisible === false ? "neutral" : "success"}>{item.isVisible === false ? "Hidden" : "Visible"}</Badge></div><div className="mt-3 flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => edit(item)}>Edit</Button><Button type="button" variant="outline" disabled={index === 0} onClick={() => reorderList(item, -1)}>Move up</Button><Button type="button" variant="outline" disabled={index === items.length - 1} onClick={() => reorderList(item, 1)}>Move down</Button><Button type="button" variant="danger" disabled title="Service category deletion is Backend pending">Delete (Backend pending)</Button></div></div></article>)}</div> : <EmptyState title="No services yet" />}</Card>
-    {editing ? <div className="fixed inset-0 z-[80] flex justify-end bg-black/40"><section role="dialog" aria-modal="true" className="h-full w-full max-w-xl overflow-y-auto bg-white p-6 shadow-2xl"><div className="flex justify-between"><h2 className="text-xl font-bold">{editing.slug === "__reorder__" ? "Reorder services" : "Edit service"}</h2><Button variant="outline" onClick={() => setEditing(null)}>Close</Button></div>{editing.slug === "__reorder__" ? <p className="mt-5">Reordering is not supported by the public service route definitions yet.</p> : <><label className="mt-5 block text-sm font-semibold">Title<input value={String(draft.name ?? "")} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><label className="mt-4 block text-sm font-semibold">Description<textarea rows={4} value={String(draft.summary ?? "")} onChange={(event) => setDraft((current) => ({ ...current, summary: event.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><label className="mt-4 block text-sm font-semibold">Image URL<input value={String(draft.image ?? "")} onChange={(event) => setDraft((current) => ({ ...current, image: event.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><label className="mt-4 flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={draft.isVisible !== false} onChange={(event) => setDraft((current) => ({ ...current, isVisible: event.target.checked }))} />Visible</label><div className="mt-5 rounded-xl border border-[var(--admin-border)] p-4"><p className="text-xs font-bold uppercase text-[var(--admin-muted)]">Preview</p><h3 className="mt-2 text-lg font-bold">{String(draft.name ?? "Service title")}</h3><p className="mt-1 text-sm">{String(draft.summary ?? "Service description")}</p></div><Button className="mt-5" onClick={() => setWarningOpen(true)}>Review update</Button></>}{error ? <p role="alert" className="mt-4 text-sm text-red-700">{error}</p> : null}</section></div> : null}
-    {warningOpen ? <ConfirmDialog open title="Apply service change everywhere?" description="This change will update Home, the Services page, service detail pages, and Quote where these service records are used. Continue?" confirmLabel={working ? "Saving…" : "Apply everywhere"} onCancel={() => setWarningOpen(false)} onConfirm={() => void apply()} /> : null}
-    {deleteTarget ? <ConfirmDialog open title="Delete service category?" description="Service category deletion requires changing code-defined routes and quote options. That is Backend pending; no changes will be made." confirmLabel="Backend pending" onCancel={() => setDeleteTarget(null)} onConfirm={() => setDeleteTarget(null)} /> : null}
+  return <div className="mt-2 space-y-4">{error ? <ErrorState title="Service update failed" description={error} /> : null}<Card title="Services master list"><p className="mb-4 text-sm text-[var(--admin-muted)]">Categories are fixed. Edit category name and description here; manage each category’s subservices below. Category deletion is disabled.</p><div className="mb-4"><select aria-label="Filter services by category" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="min-h-10 w-full max-w-sm rounded-lg border border-[var(--admin-border)] bg-white px-3 text-sm"><option>All categories</option>{items.map((row) => <option key={String(row.slug)} value={String(row.slug)}>{String(row.name)}</option>)}</select></div><div className="space-y-4">{visibleCategories.map((item) => { const categorySubs = subserviceObjects(item); const pendingSubs = (draft.subservicesDraft as Record<string, unknown> | undefined)?.[String(item.slug)]; const displayedSubs = Array.isArray(pendingSubs) ? pendingSubs as Record<string, unknown>[] : categorySubs; return <article key={String(item.slug)} className="overflow-hidden rounded-xl border border-[var(--admin-border)] bg-white"><div className="flex gap-4 p-4"><div className="relative h-24 w-28 shrink-0 overflow-hidden rounded-lg bg-slate-100">{typeof item.image === "string" ? <Image src={item.image} alt={String(item.imageAlt ?? item.name ?? "Service image")} fill unoptimized className="object-cover" /> : null}</div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><div><h3 className="font-bold">{String(item.name ?? "Untitled service")}</h3><p className="text-sm text-[var(--admin-muted)]">{String(item.summary ?? "")}</p></div><Badge variant={item.isVisible === false ? "neutral" : "success"}>{item.isVisible === false ? "Hidden" : "Visible"}</Badge></div><Button className="mt-3" type="button" variant="outline" onClick={() => edit(item)}>Edit category name/text</Button></div></div><div className="border-t border-[var(--admin-border)] bg-slate-50/70 p-4"><div className="mb-3 flex items-center justify-between"><h4 className="font-semibold">Subservices ({displayedSubs.length})</h4><span className="text-xs text-[var(--admin-muted)]">These entries are editable and removable.</span></div>{displayedSubs.map((sub, subIndex) => <div key={`${String(item.slug)}-${subIndex}`} className="mb-2 grid gap-2 rounded-lg border border-[var(--admin-border)] bg-white p-3 md:grid-cols-[1fr_2fr_auto]"><Input aria-label="Subservice name" value={String(sub.name ?? "")} onChange={(event) => editSubservice(item, subIndex, "name", event.target.value)} /><Input aria-label="Subservice description" placeholder="Description" value={String(sub.description ?? "")} onChange={(event) => editSubservice(item, subIndex, "description", event.target.value)} /><Button type="button" variant="danger" onClick={() => deleteSubservice(item, subIndex)}>Remove</Button></div>)}<div className="mt-3 grid gap-2 md:grid-cols-[1fr_2fr_auto]"><Input aria-label="New subservice name" placeholder="New subservice name" value={newSubservice} onChange={(event) => setNewSubservice(event.target.value)} /><Input aria-label="New subservice description" placeholder="Description (optional)" value={newSubserviceDescription} onChange={(event) => setNewSubserviceDescription(event.target.value)} /><Button type="button" disabled={working} onClick={() => addSubservice(item)}>Add subservice</Button></div><Button type="button" className="mt-3" disabled={working || !Array.isArray(pendingSubs)} onClick={() => saveSubserviceEdits(item)}>Save subservices</Button></div></article>; })}</div></Card>
+      {editing ? <div className="fixed inset-0 z-[80] flex justify-end bg-black/40"><section role="dialog" aria-modal="true" className="h-full w-full max-w-xl overflow-y-auto bg-white p-6 shadow-2xl"><div className="flex justify-between"><h2 className="text-xl font-bold">Edit category details</h2><Button variant="outline" onClick={() => { setEditing(null); setDraft({}); }}>Close</Button></div><label className="mt-5 block text-sm font-semibold">Category name<input value={String(draft.name ?? "")} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><label className="mt-4 block text-sm font-semibold">Category description<textarea rows={4} value={String(draft.summary ?? "")} onChange={(event) => setDraft((current) => ({ ...current, summary: event.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><label className="mt-4 block text-sm font-semibold">Category image URL<input value={String(draft.image ?? "")} onChange={(event) => setDraft((current) => ({ ...current, image: event.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><label className="mt-4 flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={draft.isVisible !== false} onChange={(event) => setDraft((current) => ({ ...current, isVisible: event.target.checked }))} />Visible</label><div className="mt-5 rounded-xl border border-[var(--admin-border)] p-4"><p className="text-xs font-bold uppercase text-[var(--admin-muted)]">Preview</p><h3 className="mt-2 text-lg font-bold">{String(draft.name ?? "Service title")}</h3><p className="mt-1 text-sm">{String(draft.summary ?? "Service description")}</p></div><Button className="mt-5" disabled={working} onClick={() => void applyCategory()}>Save category details</Button>{error ? <p role="alert" className="mt-4 text-sm text-red-700">{error}</p> : null}</section></div> : null}
+      {subserviceDelete ? <ConfirmDialog open title="Remove subservice?" description={`Remove ${String(subserviceObjects(subserviceDelete.category)[subserviceDelete.index]?.name ?? "this subservice")} from this category and its detail/quote lists?`} confirmLabel="Remove subservice" onCancel={() => setSubserviceDelete(null)} onConfirm={confirmDeleteSubservice} /> : null}
   </div>;
 }
 
