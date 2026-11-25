@@ -216,7 +216,9 @@ export default function AdminDashboard({ page, ownerEmail, displayName, initialD
         {page === "Settings" && searchParams.get("panel") === "newsletter" ? <NewsletterPlaceholder /> : null}
         {page === "Site Content" ? <div className="mt-2 space-y-6"><Link href="/admin/gallery" className="flex items-center gap-4 rounded-xl border border-[var(--admin-border)] bg-white p-5 transition hover:border-[var(--admin-green)] hover:bg-emerald-50"><ImageIcon className="text-[var(--admin-green)]" /><span><strong className="block">Manage photos in Gallery</strong><span className="text-sm text-[var(--admin-muted)]">View and manage page images in one place.</span></span></Link>{groupedSections.map(([group, sections]) => <section key={group}><h2 className="mb-3 text-lg font-bold text-[var(--admin-green-dark)]">{group}</h2><div className="grid gap-4 xl:grid-cols-2">{sections.filter((section) => section.section_key !== "gallery_content").map((section) => <div key={section.section_key} id={section.section_key}><SectionEditor section={section} busy={busy === section.section_key} onSave={(values) => mutate({ action: "save-section", sectionKey: section.section_key, ...values })} /></div>)}</div></section>)}</div> : null}
     {page === "Gallery" ? <GalleryPanel sections={data.sections} sectionsError={dataError} busy={busy} onMutate={mutateAndReport} /> : null}
-        {["Services", "Testimonies", "Settings"].includes(page) ? <Card className="mt-2" title={page}><EmptyState title={`${page} panel`} description="This panel is ready for its feature work." /></Card> : null}
+        {page === "Services" ? <ServicesMaster sections={data.sections} busy={busy} onMutate={mutateAndReport} /> : null}
+        {page === "Testimonies" ? <TestimoniesMaster sections={data.sections} busy={busy} onMutate={mutateAndReport} /> : null}
+        {page === "Settings" ? <Card className="mt-2" title="Settings"><EmptyState title="Settings panel" description="Manage shared site settings." /></Card> : null}
       </div>
     </main>
   );
@@ -691,6 +693,139 @@ function SubscribersPanel({ subscribers, busy, error, onExport, onMutate, onRefr
 
 function NewsletterPlaceholder() {
   return <Card className="mt-4" title="Send newsletter"><div className="space-y-4"><p className="text-sm text-[var(--admin-muted)]">Compose a newsletter for subscribers. Sending is not available yet.</p><Badge variant="gold">Backend pending</Badge><label className="block text-sm font-semibold">Subject<input disabled placeholder="Newsletter subject" className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><label className="block text-sm font-semibold">Message<textarea disabled rows={8} placeholder="Write your newsletter…" className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><Button type="button" variant="primary" disabled><Mail size={16} className="mr-2" />Send newsletter</Button></div></Card>;
+}
+
+type CmsSectionMutation = (payload: Record<string, unknown>) => Promise<{ ok: boolean; data?: DashboardData; error?: string }>;
+
+function reorderBySlugs(existing: Record<string, unknown>[], order: Record<string, unknown>[], key = "slug") {
+  const rank = new Map(order.map((item, index) => [String(item[key]), index]));
+  return [...existing].sort((a, b) => (rank.get(String(a[key])) ?? Number.MAX_SAFE_INTEGER) - (rank.get(String(b[key])) ?? Number.MAX_SAFE_INTEGER));
+}
+
+function ServicesMaster({ sections, busy, onMutate }: { sections: Section[]; busy: string; onMutate: CmsSectionMutation }) {
+  const categoriesSection = sections.find((section) => section.section_key === "services_categories");
+  const detailsSection = sections.find((section) => section.section_key === "services_detail");
+  const homeSection = sections.find((section) => section.section_key === "home_services");
+  const items = categoriesSection && Array.isArray(categoriesSection.content.items) ? categoriesSection.content.items as Record<string, unknown>[] : [];
+  const [editing, setEditing] = useState<Record<string, unknown> | null>(null);
+  const [draft, setDraft] = useState<Record<string, unknown>>({});
+  const [warningOpen, setWarningOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Record<string, unknown> | null>(null);
+  const [error, setError] = useState("");
+  const [working, setWorking] = useState(false);
+
+  function edit(item: Record<string, unknown>) { setEditing(item); setDraft(structuredClone(item)); setError(""); }
+  function reorderList(item: Record<string, unknown>, direction: -1 | 1) {
+    const next = [...items];
+    const index = next.findIndex((row) => row.slug === item.slug);
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    setEditing({ slug: "__reorder__" });
+    setDraft({ reorder: next });
+    setWarningOpen(true);
+  }
+  async function apply() {
+      if (!categoriesSection || !detailsSection) return setError("Service CMS sections are unavailable.");
+    if (editing?.slug !== "__reorder__" && (!String(draft.name ?? "").trim() || !String(draft.summary ?? "").trim())) return setError("Service title and description are required.");
+    setWorking(true); setError("");
+    try {
+      const nextCategories = editing?.slug === "__reorder__" && Array.isArray(draft.reorder) ? draft.reorder as Record<string, unknown>[] : items.map((item) => item.slug === editing?.slug ? { ...item, ...draft } : item);
+      const details = Array.isArray(detailsSection.content.items) ? detailsSection.content.items as Record<string, unknown>[] : [];
+      const nextDetails = editing?.slug === "__reorder__" && Array.isArray(draft.reorder) ? reorderBySlugs(details, draft.reorder as Record<string, unknown>[]) : details.map((item) => item.slug === editing?.slug ? { ...item, title: draft.name, intro: draft.summary, image: draft.image, isVisible: draft.isVisible } : item);
+      const homeItems = homeSection && Array.isArray(homeSection.content.items) ? homeSection.content.items as Record<string, unknown>[] : [];
+      const nextHomeItems = editing?.slug === "__reorder__" && Array.isArray(draft.reorder) ? reorderBySlugs(homeItems, draft.reorder as Record<string, unknown>[], "categorySlug") : homeItems.map((item) => item.categorySlug === editing?.slug ? { ...item, categoryName: draft.name, detail: draft.summary, image: draft.image } : item);
+      const updates: { section: Section; content: Record<string, unknown> }[] = [
+        { section: categoriesSection, content: { ...categoriesSection.content, items: nextCategories } },
+        { section: detailsSection, content: { ...detailsSection.content, items: nextDetails } },
+        ...(homeSection && homeItems.length ? [{ section: homeSection, content: { ...homeSection.content, items: nextHomeItems } }] : []),
+      ];
+      for (const update of updates) {
+        const result = await onMutate({ action: "save-section", sectionKey: update.section.section_key, label: update.section.label, isVisible: update.section.is_visible, content: update.content });
+        if (!result.ok) throw new Error(`Could not update ${update.section.label}: ${result.error ?? "save failed"}`);
+        const confirmed = result.data?.sections.find((row) => row.section_key === update.section.section_key);
+        if (!confirmed || JSON.stringify(confirmed.content) !== JSON.stringify(update.content)) throw new Error(`Could not confirm update on ${update.section.label}.`);
+      }
+      setEditing(null); setWarningOpen(false);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Service update failed."); }
+    finally { setWorking(false); }
+  }
+
+  if (busy === "loading") return <LoadingState label="Loading services…" />;
+  return <div className="mt-2 space-y-4">{error ? <ErrorState title="Service update failed" description={error} /> : null}<Card title="Services master list"><p className="mb-4 text-sm text-[var(--admin-muted)]">Service categories appear on Home, Services, service detail pages, and Quote.</p><p className="mb-4"><Badge variant="gold">Adding/deleting route categories: Backend pending</Badge></p>{items.length ? <div className="grid gap-4 lg:grid-cols-2">{items.map((item, index) => <article key={String(item.slug)} className="flex gap-4 rounded-xl border border-[var(--admin-border)] p-4"><div className="relative h-24 w-28 shrink-0 overflow-hidden rounded-lg bg-slate-100">{typeof item.image === "string" ? <Image src={item.image} alt={String(item.imageAlt ?? item.name ?? "Service image")} fill unoptimized className="object-cover" /> : null}</div><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold">{String(item.name ?? "Untitled service")}</h3><p className="mt-1 line-clamp-2 text-sm text-[var(--admin-muted)]">{String(item.summary ?? "")}</p></div><Badge variant={item.isVisible === false ? "neutral" : "success"}>{item.isVisible === false ? "Hidden" : "Visible"}</Badge></div><div className="mt-3 flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => edit(item)}>Edit</Button><Button type="button" variant="outline" disabled={index === 0} onClick={() => reorderList(item, -1)}>Move up</Button><Button type="button" variant="outline" disabled={index === items.length - 1} onClick={() => reorderList(item, 1)}>Move down</Button><Button type="button" variant="danger" disabled title="Service category deletion is Backend pending">Delete (Backend pending)</Button></div></div></article>)}</div> : <EmptyState title="No services yet" />}</Card>
+    {editing ? <div className="fixed inset-0 z-[80] flex justify-end bg-black/40"><section role="dialog" aria-modal="true" className="h-full w-full max-w-xl overflow-y-auto bg-white p-6 shadow-2xl"><div className="flex justify-between"><h2 className="text-xl font-bold">{editing.slug === "__reorder__" ? "Reorder services" : "Edit service"}</h2><Button variant="outline" onClick={() => setEditing(null)}>Close</Button></div>{editing.slug === "__reorder__" ? <p className="mt-5">Reordering is not supported by the public service route definitions yet.</p> : <><label className="mt-5 block text-sm font-semibold">Title<input value={String(draft.name ?? "")} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><label className="mt-4 block text-sm font-semibold">Description<textarea rows={4} value={String(draft.summary ?? "")} onChange={(event) => setDraft((current) => ({ ...current, summary: event.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><label className="mt-4 block text-sm font-semibold">Image URL<input value={String(draft.image ?? "")} onChange={(event) => setDraft((current) => ({ ...current, image: event.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><label className="mt-4 flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={draft.isVisible !== false} onChange={(event) => setDraft((current) => ({ ...current, isVisible: event.target.checked }))} />Visible</label><div className="mt-5 rounded-xl border border-[var(--admin-border)] p-4"><p className="text-xs font-bold uppercase text-[var(--admin-muted)]">Preview</p><h3 className="mt-2 text-lg font-bold">{String(draft.name ?? "Service title")}</h3><p className="mt-1 text-sm">{String(draft.summary ?? "Service description")}</p></div><Button className="mt-5" onClick={() => setWarningOpen(true)}>Review update</Button></>}{error ? <p role="alert" className="mt-4 text-sm text-red-700">{error}</p> : null}</section></div> : null}
+    {warningOpen ? <ConfirmDialog open title="Apply service change everywhere?" description="This change will update Home, the Services page, service detail pages, and Quote where these service records are used. Continue?" confirmLabel={working ? "Saving…" : "Apply everywhere"} onCancel={() => setWarningOpen(false)} onConfirm={() => void apply()} /> : null}
+    {deleteTarget ? <ConfirmDialog open title="Delete service category?" description="Service category deletion requires changing code-defined routes and quote options. That is Backend pending; no changes will be made." confirmLabel="Backend pending" onCancel={() => setDeleteTarget(null)} onConfirm={() => setDeleteTarget(null)} /> : null}
+  </div>;
+}
+
+function TestimoniesMaster({ sections, busy, onMutate }: { sections: Section[]; busy: string; onMutate: CmsSectionMutation }) {
+  const homeSection = sections.find((section) => section.section_key === "home_testimonials");
+  const aboutSection = sections.find((section) => section.section_key === "about_trust");
+  const homeItems = homeSection && Array.isArray(homeSection.content.items) ? homeSection.content.items as Record<string, unknown>[] : [];
+  const aboutItems = aboutSection && Array.isArray(aboutSection.content.testimonials) ? aboutSection.content.testimonials as Record<string, unknown>[] : [];
+  const [draft, setDraft] = useState<Record<string, unknown>>({});
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const [working, setWorking] = useState(false);
+
+  function openEditor(index: number | null) { setEditingIndex(index); const item = index === null ? {} : homeItems[index]; setDraft({ name: item?.name ?? "", location: item?.location ?? "", text: item?.text ?? "", rating: item?.rating ?? "", isVisible: item?.isVisible !== false }); setError(""); }
+  async function commit() {
+    if (!homeSection || !aboutSection) return setError("Testimony CMS sections are unavailable.");
+    if (!String(draft.name ?? "").trim() || !String(draft.text ?? "").trim()) return setError("Name and testimony text are required.");
+    setWorking(true); setError("");
+    const nextHome = [...homeItems];
+    if (editingIndex === null) nextHome.push({ ...draft }); else nextHome[editingIndex] = { ...nextHome[editingIndex], ...draft };
+    const findCopy = (record: Record<string, unknown>) => aboutItems.findIndex((other) => String(other.attribution ?? "").startsWith(String(record.name ?? "")) || String(other.quote ?? "") === String(record.text ?? ""));
+    const nextAbout = [...aboutItems];
+    if (editingIndex !== null) {
+      const previous = homeItems[editingIndex];
+      const oldCopyIndex = aboutItems.findIndex((other) => String(other.attribution ?? "").startsWith(String(previous?.name ?? "")) || String(other.quote ?? "") === String(previous?.text ?? ""));
+      if (oldCopyIndex >= 0) nextAbout.splice(oldCopyIndex, 1);
+    }
+    for (const homeItem of nextHome) {
+      const match = findCopy(homeItem);
+      const mapped = { quote: homeItem.text, attribution: `${homeItem.name}${homeItem.location ? ` · ${homeItem.location}` : ""}`, isVisible: homeItem.isVisible !== false };
+      if (match < 0) nextAbout.push(mapped); else nextAbout[match] = { ...nextAbout[match], ...mapped };
+    }
+    setWorking(true);
+    try {
+      let step = 0;
+      for (const [section, content] of [[homeSection, { ...homeSection.content, items: nextHome }], [aboutSection, { ...aboutSection.content, testimonials: nextAbout }]] as [Section, Record<string, unknown>][]) {
+        setPending(true);
+        setError(`Updating ${step === 0 ? "Home testimonials" : "About testimonials"}…`);
+        const result = await onMutate({ action: "save-section", sectionKey: section.section_key, label: section.label, isVisible: section.is_visible, content });
+        if (!result.ok) throw new Error(`Could not update ${section.section_key}: ${result.error ?? "save failed"}`);
+        const confirmed = result.data?.sections.find((item) => item.section_key === section.section_key);
+        if (!confirmed || JSON.stringify(confirmed.content) !== JSON.stringify(content)) throw new Error(`Could not confirm update on ${section.section_key}.`);
+        step++;
+      }
+      setPending(false); setEditingIndex(null); setDraft({}); setError("Testimony updated on Home and About.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Testimony update failed."); }
+    finally { setWorking(false); }
+  }
+
+  async function remove(index: number) {
+    if (!homeSection || !aboutSection) return;
+    const item = homeItems[index];
+    const nextHome = homeItems.filter((_, i) => i !== index);
+    const nextAbout = aboutItems.filter((other) => !String(other.attribution ?? "").startsWith(String(item.name ?? "")) && String(other.quote ?? "") !== String(item.text ?? ""));
+    setWorking(true); setError("");
+    try {
+      for (const [section, content] of [[homeSection, { ...homeSection.content, items: nextHome }], [aboutSection, { ...aboutSection.content, testimonials: nextAbout }]] as [Section, Record<string, unknown>][]) {
+        const result = await onMutate({ action: "save-section", sectionKey: section.section_key, label: section.label, isVisible: section.is_visible, content });
+        if (!result.ok) throw new Error(`Could not update ${section.section_key}: ${result.error ?? "save failed"}`);
+        const confirmed = result.data?.sections.find((row) => row.section_key === section.section_key);
+        if (!confirmed || JSON.stringify(confirmed.content) !== JSON.stringify(content)) throw new Error(`Could not confirm update on ${section.section_key}.`);
+      }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Testimony delete failed."); }
+    finally { setWorking(false); }
+  }
+
+  if (busy === "loading") return <LoadingState label="Loading testimonies…" />;
+  return <div className="mt-2 space-y-4">{error ? <ErrorState title="Testimony update failed" description={error} /> : null}<Card title="Testimonies master list"><p className="mb-4 text-sm text-[var(--admin-muted)]">Home and About display separate copies; changes here are synchronized to both.</p><div className="mb-4 flex justify-end"><Button onClick={() => openEditor(null)}>Add testimony</Button></div>{homeItems.length ? <div className="grid gap-3 lg:grid-cols-2">{homeItems.map((item, index) => <article key={`${item.name}-${index}`} className="rounded-xl border border-[var(--admin-border)] bg-white p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold">{String(item.name ?? "")}</h3><p className="text-xs text-[var(--admin-muted)]">{String(item.location ?? "")}</p></div><Badge variant={item.isVisible === false ? "neutral" : "success"}>{item.isVisible === false ? "Hidden" : "Visible"}</Badge></div><p className="mt-3 text-sm">{String(item.text ?? "")}</p>{item.rating ? <p className="mt-2 text-sm">Rating: {String(item.rating)}</p> : null}<div className="mt-4 flex gap-2"><Button variant="outline" onClick={() => openEditor(index)}>Edit</Button><Button variant="danger" onClick={() => setDeleteIndex(index)}>Delete</Button></div></article>)}</div> : <EmptyState title="No testimonies yet" />} </Card>{editingIndex !== null || Object.keys(draft).length ? <div className="fixed inset-0 z-[80] flex justify-end bg-black/40"><section role="dialog" aria-modal="true" className="h-full w-full max-w-lg overflow-y-auto bg-white p-6"><h2 className="text-xl font-bold">{editingIndex === null ? "Add testimony" : "Edit testimony"}</h2>{["name", "location", "rating", "text"].map((field) => <label key={field} className="mt-4 block text-sm font-semibold">{humanize(field)}{field === "text" ? <textarea rows={5} value={String(draft[field] ?? "")} onChange={(event) => setDraft((current) => ({ ...current, [field]: event.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /> : <input value={String(draft[field] ?? "")} onChange={(event) => setDraft((current) => ({ ...current, [field]: event.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" />}</label>)}<label className="mt-4 flex gap-2"><input type="checkbox" checked={draft.isVisible !== false} onChange={(event) => setDraft((current) => ({ ...current, isVisible: event.target.checked }))} />Visible</label>{error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}<Button className="mt-5" disabled={working} onClick={() => setPending(true)}>Review changes</Button><Button variant="outline" className="ml-2 mt-5" onClick={() => { setDraft({}); setEditingIndex(null); }}>Cancel</Button></section></div> : null}{pending ? <ConfirmDialog open title="Apply testimony change everywhere?" description="This change will update the testimonial on Home and the customer testimony on About. Continue?" confirmLabel={working ? "Saving…" : "Apply everywhere"} onCancel={() => setPending(false)} onConfirm={() => void commit()} /> : null}{deleteIndex !== null ? <ConfirmDialog open title="Delete this testimony?" description="This testimony will be removed from Home and About." confirmLabel="Delete testimony" onCancel={() => setDeleteIndex(null)} onConfirm={() => { const index = deleteIndex; setDeleteIndex(null); void remove(index); }} /> : null}</div>;
 }
 
 function buildSearchHits(data: DashboardData, query: string): SearchHit[] {
