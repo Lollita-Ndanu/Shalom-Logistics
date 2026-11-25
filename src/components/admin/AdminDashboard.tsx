@@ -702,6 +702,15 @@ function reorderBySlugs(existing: Record<string, unknown>[], order: Record<strin
   return [...existing].sort((a, b) => (rank.get(String(a[key])) ?? Number.MAX_SAFE_INTEGER) - (rank.get(String(b[key])) ?? Number.MAX_SAFE_INTEGER));
 }
 
+function jsonEqual(left: unknown, right: unknown): boolean {
+  const normalize = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(normalize);
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, child]) => [key, normalize(child)]));
+    return value;
+  };
+  return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
+}
+
 function ServicesMaster({ sections, busy, onMutate }: { sections: Section[]; busy: string; onMutate: CmsSectionMutation }) {
   const categoriesSection = sections.find((section) => section.section_key === "services_categories");
   const detailsSection = sections.find((section) => section.section_key === "services_detail");
@@ -744,7 +753,7 @@ function ServicesMaster({ sections, busy, onMutate }: { sections: Section[]; bus
         const result = await onMutate({ action: "save-section", sectionKey: update.section.section_key, label: update.section.label, isVisible: update.section.is_visible, content: update.content });
         if (!result.ok) throw new Error(`Could not update ${update.section.label}: ${result.error ?? "save failed"}`);
         const confirmed = result.data?.sections.find((row) => row.section_key === update.section.section_key);
-        if (!confirmed || JSON.stringify(confirmed.content) !== JSON.stringify(update.content)) throw new Error(`Could not confirm update on ${update.section.label}.`);
+        if (!confirmed || !jsonEqual(confirmed.content, update.content)) throw new Error(`Could not confirm update on ${update.section.label}.`);
       }
       setEditing(null); setWarningOpen(false);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Service update failed."); }
@@ -776,20 +785,20 @@ function TestimoniesMaster({ sections, busy, onMutate }: { sections: Section[]; 
     if (!homeSection || !aboutSection) return setError("Testimony CMS sections are unavailable.");
     if (!String(draft.name ?? "").trim() || !String(draft.text ?? "").trim()) return setError("Name and testimony text are required.");
     setWorking(true); setError("");
-    const nextHome = [...homeItems];
-    if (editingIndex === null) nextHome.push({ ...draft }); else nextHome[editingIndex] = { ...nextHome[editingIndex], ...draft };
-    const findCopy = (record: Record<string, unknown>) => aboutItems.findIndex((other) => String(other.attribution ?? "").startsWith(String(record.name ?? "")) || String(other.quote ?? "") === String(record.text ?? ""));
-    const nextAbout = [...aboutItems];
-    if (editingIndex !== null) {
-      const previous = homeItems[editingIndex];
-      const oldCopyIndex = aboutItems.findIndex((other) => String(other.attribution ?? "").startsWith(String(previous?.name ?? "")) || String(other.quote ?? "") === String(previous?.text ?? ""));
-      if (oldCopyIndex >= 0) nextAbout.splice(oldCopyIndex, 1);
-    }
-    for (const homeItem of nextHome) {
-      const match = findCopy(homeItem);
-      const mapped = { quote: homeItem.text, attribution: `${homeItem.name}${homeItem.location ? ` · ${homeItem.location}` : ""}`, isVisible: homeItem.isVisible !== false };
-      if (match < 0) nextAbout.push(mapped); else nextAbout[match] = { ...nextAbout[match], ...mapped };
-    }
+      const nextHome = [...homeItems];
+      const previous = editingIndex === null ? null : homeItems[editingIndex];
+      const homeRecord = { ...(previous ?? {}), ...draft };
+      if (editingIndex === null) nextHome.push(homeRecord); else nextHome[editingIndex] = homeRecord;
+      const nextAbout = [...aboutItems];
+      if (previous) {
+        const oldAttribution = `${String(previous.name ?? "")}${previous.location ? ` · ${String(previous.location)}` : ""}`;
+        const oldIndex = nextAbout.findIndex((other) => String(other.attribution ?? "") === oldAttribution || String(other.quote ?? "") === String(previous.text ?? ""));
+        if (oldIndex >= 0) nextAbout.splice(oldIndex, 1);
+      }
+      const mapped = { quote: homeRecord.text, attribution: `${homeRecord.name}${homeRecord.location ? ` · ${homeRecord.location}` : ""}`, isVisible: homeRecord.isVisible !== false };
+      const matchingIndex = nextAbout.findIndex((other) => String(other.quote ?? "") === String(mapped.quote ?? "") || String(other.attribution ?? "") === String(mapped.attribution ?? ""));
+      if (matchingIndex >= 0) nextAbout[matchingIndex] = { ...nextAbout[matchingIndex], ...mapped };
+      else nextAbout.push(mapped);
     setWorking(true);
     try {
       let step = 0;
@@ -799,7 +808,7 @@ function TestimoniesMaster({ sections, busy, onMutate }: { sections: Section[]; 
         const result = await onMutate({ action: "save-section", sectionKey: section.section_key, label: section.label, isVisible: section.is_visible, content });
         if (!result.ok) throw new Error(`Could not update ${section.section_key}: ${result.error ?? "save failed"}`);
         const confirmed = result.data?.sections.find((item) => item.section_key === section.section_key);
-        if (!confirmed || JSON.stringify(confirmed.content) !== JSON.stringify(content)) throw new Error(`Could not confirm update on ${section.section_key}.`);
+        if (!confirmed || !jsonEqual(confirmed.content, content)) throw new Error(`Could not confirm update on ${section.section_key}.`);
         step++;
       }
       setPending(false); setEditingIndex(null); setDraft({}); setError("Testimony updated on Home and About.");
