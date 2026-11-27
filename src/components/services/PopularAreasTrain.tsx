@@ -46,7 +46,16 @@ const AREAS = [
   },
 ] as const;
 
-export default function PopularAreasTrain() {
+type PopularArea = { name: string; subtitle: string; image: string; isVisible?: boolean };
+
+export default function PopularAreasTrain({ content = {} }: { content?: { eyebrow?: string; heading?: string; intro?: string; items?: { name?: string; subtitle?: string; image?: string; isVisible?: boolean }[] } }) {
+  const source: { name?: string; subtitle?: string; image?: string; isVisible?: boolean }[] = content.items?.length ? content.items : AREAS.map((area) => ({ ...area, isVisible: true }));
+  const areas: PopularArea[] = source.filter((area) => area.isVisible !== false).map((area, index) => ({
+    name: String(area.name ?? AREAS[index]?.name ?? `Area ${index + 1}`),
+    subtitle: String(area.subtitle ?? AREAS[index]?.subtitle ?? ""),
+    image: String(area.image ?? AREAS[index]?.image ?? ""),
+    isVisible: area.isVisible,
+  }));
   return (
     <section
       aria-labelledby="popular-areas-heading"
@@ -124,17 +133,16 @@ export default function PopularAreasTrain() {
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold sm:text-sm">
-            Moving across Kenya
+            {content.eyebrow ?? "Moving across Kenya"}
           </p>
           <h2
             id="popular-areas-heading"
             className="mt-3 text-4xl font-bold leading-tight sm:text-5xl"
           >
-            Popular Areas
+            {content.heading ?? "Popular Areas"}
           </h2>
           <p className="mt-4 text-lg leading-relaxed text-white/70">
-            Reliable moving, transport, and cleaning support wherever you are
-            headed.
+            {content.intro ?? "Reliable moving, transport, and cleaning support wherever you are headed."}
           </p>
         </div>
       </div>
@@ -150,7 +158,7 @@ export default function PopularAreasTrain() {
               aria-hidden={group === 1}
               className="flex gap-5 pr-5 sm:gap-6 sm:pr-6"
             >
-              {AREAS.map((area) => (
+              {areas.map((area) => (
                 <article
                   key={`${group}-${area.name}`}
                   className="w-[220px] shrink-0 overflow-hidden border border-white/10 bg-black sm:w-[280px]"

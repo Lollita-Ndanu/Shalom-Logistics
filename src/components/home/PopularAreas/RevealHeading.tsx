@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { Fragment, type CSSProperties } from "react";
 
 // Shared reveal timing values for this section's heading sequence.
 export const POPULAR_AREAS_REVEAL = {
@@ -25,6 +25,6 @@ export const POPULAR_AREAS_REVEAL = {
 export default function RevealHeading({ text, id }: { text: string; id: string }) {
   const words = text.split(" ");
   return <h2 id={id} aria-label={text} className="pa-reveal-heading">
-    <span aria-hidden="true">{words.map((word, index) => <span className="pa-word-mask" key={`${word}-${index}`} style={{ "--word-index": index } as CSSProperties}><span className="pa-word-inner">{word}</span>{index < words.length - 1 ? " " : null}</span>)}</span>
+    <span aria-hidden="true">{words.map((word, index) => <Fragment key={`${word}-${index}`}><span className="pa-word-mask" style={{ "--word-index": index } as CSSProperties}><span className="pa-word-inner">{word}</span></span>{index < words.length - 1 ? " " : null}</Fragment>)}</span>
   </h2>;
 }

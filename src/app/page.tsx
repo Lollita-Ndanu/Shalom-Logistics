@@ -43,6 +43,14 @@ export default async function HomePage() {
     const detailServices = (details[category.slug]?.services ?? []).filter((service) => service.isVisible !== false).map((service) => service.name);
     return { ...category, quoteServices: Array.from(new Set([...categoryServices, ...detailServices])) };
   });
+  const normalizeServiceName = (value?: string) => (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const detailImageFor = (categorySlug?: string, name?: string) => {
+    if (!categorySlug || !name) return undefined;
+    const target = normalizeServiceName(name);
+    return (details as Record<string, { services?: { name: string; image?: string; isVisible?: boolean }[] } | undefined>)[categorySlug]?.services?.find(
+      (service) => service.isVisible !== false && normalizeServiceName(service.name) === target
+    )?.image;
+  };
   const defaultHomeServices = categories.flatMap((category) => {
     const names = (category.subServices ?? []).filter((service) => typeof service === "string" || service.isVisible !== false).map((service) => typeof service === "string" ? service : service.name).slice(0, 2);
     const categoryImages: Record<string, string> = {
@@ -60,11 +68,14 @@ export default async function HomePage() {
       badge: ["House & Apartment Moving", "Office Relocation", "Inter-County / Upcountry Moving", "Home Spring Cleaning", "Event Gear & Production Transport"].includes(name) ? "Popular" as const : undefined,
       description: details[category.slug]?.services.find((item) => item.name === name)?.description ?? category.summary,
       detail: category.summary,
-      image: categoryImages[category.slug] ?? category.image,
+      image: detailImageFor(category.slug, name) ?? categoryImages[category.slug] ?? category.image,
       isVisible: true,
     }));
   });
-  const homeServiceItems = visibleItems(homeServices.items ?? []);
+  const homeServiceItems = visibleItems(homeServices.items ?? []).map((item) => {
+    const image = detailImageFor(item.categorySlug, item.subservice ?? item.title);
+    return image ? { ...item, image } : item;
+  });
   const ourServicesItems = homeServiceItems.length === 10 ? homeServiceItems : defaultHomeServices;
   return (
     <>
@@ -78,13 +89,13 @@ export default async function HomePage() {
       {visible("home_testimonials") ? <Testimonials content={{ ...testimonialContent, stats: visibleItems(testimonialContent.stats ?? []), items: visibleItems(testimonialContent.items ?? []) }} /> : null}
 
       <div className="relative">
-        <div className="sticky top-0 z-0 h-dvh overflow-y-auto bg-[var(--tint)]">
+        <div className="bg-[var(--tint)] md:sticky md:top-0 md:z-0 md:h-dvh md:overflow-y-auto">
           {visible("home_faq") ? <FaqSection content={{ ...faqContent, items: visibleItems(faqContent.items ?? []) }} /> : null}
         </div>
-        <div className="sticky top-0 h-dvh overflow-hidden z-10">
+        <div className="h-dvh overflow-hidden md:sticky md:top-0 md:z-10">
           {visible("home_cta") ? <CtaBanner {...ctaContent} /> : null}
         </div>
-        <div className="sticky top-0 z-20 h-dvh overflow-y-auto">
+        <div className="md:sticky md:top-0 md:z-20 md:h-dvh md:overflow-y-auto">
           <Footer />
         </div>
       </div>
