@@ -45,8 +45,7 @@ export default async function ServicePage({ params }: ServicePageProps) {
   const { slug } = await params;
   const sections = await getSiteSections(["services_detail", "services_categories", "footer", "global_brand", "global_media", "header"]);
   const detailItems = (sections.services_detail?.content as { breadcrumbLabel?: string; cardQuoteLabel?: string; cardImageAltTemplate?: string; bottomCtaHeading?: string; bottomCtaBody?: string; bottomCtaQuoteLabel?: string; bottomCtaQuoteHref?: string; bottomCtaServicesLabel?: string; bottomCtaServicesHref?: string; items?: (ServiceDetail & { isVisible?: boolean })[] } | undefined);
-  const categoryRecordSource = detailItems?.items?.find((item) => item.slug === slug && item.isVisible !== false);
-  const categoryRecord = categoryRecordSource ? { ...categoryRecordSource, services: categoryRecordSource.services.map((service) => ({ ...service, image: localDetailImage(service.image ?? "") })) } : undefined;
+  const categoryRecord = detailItems?.items?.find((item) => item.slug === slug && item.isVisible !== false);
   const category = categoryRecord ? { ...categoryRecord, breadcrumbLabel: detailItems?.breadcrumbLabel, cardQuoteLabel: detailItems?.cardQuoteLabel, cardImageAltTemplate: detailItems?.cardImageAltTemplate, bottomCtaHeading: detailItems?.bottomCtaHeading, bottomCtaBody: detailItems?.bottomCtaBody, bottomCtaQuoteLabel: detailItems?.bottomCtaQuoteLabel, bottomCtaQuoteHref: detailItems?.bottomCtaQuoteHref, bottomCtaServicesLabel: detailItems?.bottomCtaServicesLabel, bottomCtaServicesHref: detailItems?.bottomCtaServicesHref } : getServiceDetail(slug);
   const cmsDetailRecordExists = detailItems?.items?.some((item) => item.slug === slug) ?? false;
   const categoryItems = (sections.services_categories?.content as { items?: (typeof SERVICE_CATEGORIES[number] & { isVisible?: boolean })[] } | undefined)?.items;
@@ -65,11 +64,4 @@ export default async function ServicePage({ params }: ServicePageProps) {
       <Footer />
     </>
   );
-}
-
-function localDetailImage(image: string) {
-  if (image.includes("photo-149736") || image.includes("photo-155849") || image.includes("photo-152173") || image.includes("photo-158652") || image.includes("photo-149736681")) return "/images/slots/home-office-moves.webp";
-  if (image.includes("photo-158157") || image.includes("photo-151179") || image.includes("photo-150430") || image.includes("photo-156607") || image.includes("photo-158109") || image.includes("photo-160016") || image.includes("photo-158482")) return "/images/slots/home-cleaning.webp";
-  if (image.includes("photo-160058") || image.includes("photo-160051") || image.includes("photo-155504") || image.includes("photo-161648") || image.includes("photo-160021")) return "/images/slots/home-home-relocation.webp";
-  return "/images/slots/home-goods-transport.webp";
 }

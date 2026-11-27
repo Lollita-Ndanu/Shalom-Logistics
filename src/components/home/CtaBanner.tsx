@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -33,15 +33,6 @@ export default function CtaBanner({
 }: CtaBannerProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 767px)");
-    const update = () => setIsMobile(mediaQuery.matches);
-    update();
-    mediaQuery.addEventListener("change", update);
-    return () => mediaQuery.removeEventListener("change", update);
-  }, []);
 
   const { scrollYProgress: zoomProgress } = useScroll({
     target: sectionRef,
@@ -49,7 +40,7 @@ export default function CtaBanner({
   });
 
   const scale = useTransform(zoomProgress, [0, 1], [0.7, 1.3]);
-  const lorryScale = useTransform(zoomProgress, [0, 1], [0.7, 1]);
+  const mobileScale = useTransform(zoomProgress, [0, 1], [0.7, 1.1]);
 
   const { scrollYProgress: entranceProgress } = useScroll({
     target: sectionRef,
@@ -74,20 +65,49 @@ export default function CtaBanner({
     ? { y: 0, opacity: 1 }
     : { y: boxesY, opacity: boxesOpacity };
 
-  const lorryOuterStyle = prefersReducedMotion
+  const lorryOuterStyleDesktop = prefersReducedMotion
     ? { x: 0, opacity: 1 }
-    : { x: isMobile ? lorryXMobile : lorryX, opacity: lorryOpacity };
+    : { x: lorryX, opacity: lorryOpacity };
+  const lorryOuterStyleMobile = prefersReducedMotion
+    ? { x: 0, opacity: 1 }
+    : { x: lorryXMobile, opacity: lorryOpacity };
   const whatsappNumber = SOCIAL_LINKS.find((item) => item.platform === "WhatsApp")?.url;
   const whatsappHref = `${whatsappNumber ?? "https://wa.me/"}?text=${encodeURIComponent("Hi Shalom Logistics, I'd like to make a move.")}`;
 
   return (
     <section
       ref={sectionRef}
-      className="min-h-full flex flex-col items-center justify-center bg-gold px-4 py-16 pb-[calc(min(38.67vw,186.67px)+24px)] md:pb-16 relative overflow-hidden"
+      className="min-h-full flex flex-col items-center justify-center bg-gold px-4 py-16 pb-[calc(min(38vw,210px)+16px)] md:pb-16 relative overflow-hidden"
     >
-      {/* Box overlay — left side */}
+      {/* Mobile: box and lorry share a row so they stay equal in size without overlapping */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 flex select-none items-end justify-between px-[3vw] md:hidden">
+        <motion.div className="shrink-0 will-change-transform" style={boxOuterStyle}>
+          <motion.div style={{ scale: mobileScale }} className="origin-bottom-right will-change-transform">
+            <Image
+              src="/images/Box.png"
+              alt=""
+              width={360}
+              height={300}
+              className="h-[34vw] max-h-[190px] w-auto object-contain opacity-80"
+            />
+          </motion.div>
+        </motion.div>
+        <motion.div className="shrink-0 will-change-transform" style={lorryOuterStyleMobile}>
+          <motion.div style={{ scale: mobileScale }} className="origin-bottom-left will-change-transform">
+            <Image
+              src="/images/lorry.png"
+              alt=""
+              width={480}
+              height={320}
+              className="h-[34vw] max-h-[190px] w-auto object-contain opacity-80"
+            />
+          </motion.div>
+        </motion.div>
+      </div>
+
+      {/* Desktop: box overlay — left side */}
       <motion.div
-        className="absolute left-0 bottom-0 pointer-events-none select-none will-change-transform"
+        className="absolute left-0 bottom-0 hidden pointer-events-none select-none will-change-transform md:block"
         style={boxOuterStyle}
       >
         <motion.div
@@ -99,18 +119,18 @@ export default function CtaBanner({
             alt="Moving box"
             width={360}
             height={300}
-            className="w-auto h-44 sm:h-64 md:h-80 lg:h-96 object-contain opacity-80"
+            className="w-auto h-80 lg:h-96 object-contain opacity-80"
           />
         </motion.div>
       </motion.div>
 
-      {/* Lorry overlay — right side */}
+      {/* Desktop: lorry overlay — right side */}
       <motion.div
-        className="absolute right-[3%] bottom-0 w-[58vw] max-w-[280px] h-auto pointer-events-none select-none will-change-transform md:right-0 md:w-auto md:max-w-none"
-        style={lorryOuterStyle}
+        className="absolute right-0 bottom-0 hidden pointer-events-none select-none will-change-transform md:block"
+        style={lorryOuterStyleDesktop}
       >
         <motion.div
-          style={{ scale: isMobile ? lorryScale : scale }}
+          style={{ scale }}
           className="will-change-transform"
         >
           <Image
@@ -118,7 +138,7 @@ export default function CtaBanner({
             alt="Shalom Logistics truck"
             width={480}
             height={320}
-            className="w-full h-auto md:w-auto md:h-96 lg:h-[28rem] object-contain opacity-80"
+            className="w-auto h-96 lg:h-[28rem] object-contain opacity-80"
           />
         </motion.div>
       </motion.div>
@@ -127,7 +147,7 @@ export default function CtaBanner({
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gold/80 to-transparent pointer-events-none z-10" />
 
       {/* Content */}
-      <HomeReveal className="text-center relative z-20 translate-y-[calc((min(38.67vw,186.67px)+24px-4rem)/2)] md:translate-y-0" effect="fade">
+      <HomeReveal className="text-center relative z-20 translate-y-[calc((min(38vw,210px)+16px-4rem)/2)] md:translate-y-0" effect="fade">
         <h2 className="text-3xl sm:text-4xl font-bold text-jungle-dark">
           {heading}
         </h2>

@@ -4,6 +4,16 @@ import { getOwnerUser } from '@/lib/auth/require-owner';
 import { createClient } from '@/lib/supabase/server';
 
 const TABLES = new Set(['quote_requests', 'contact_messages', 'subscribers']);
+const IMAGE_FIELD = /^(?:image|imageUrl|src|posterImageUrl|featurePoster|logoUrl|banner|bannerUrl|cardImage)$/i;
+const VIDEO_FILE = /\.(mp4|webm|mov)(?:$|\?)/i;
+
+function hasVideoInImageField(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasVideoInImageField);
+  if (!value || typeof value !== 'object') return false;
+  return Object.entries(value as Record<string, unknown>).some(([key, child]) =>
+    typeof child === 'string' ? IMAGE_FIELD.test(key) && VIDEO_FILE.test(child) : hasVideoInImageField(child)
+  );
+}
 
 export async function POST(request: Request) {
   if (!await getOwnerUser()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -49,6 +59,8 @@ export async function POST(request: Request) {
       })) {
         return NextResponse.json({ error: 'Every gallery item needs media, alt text, one valid category, and a valid media type.' }, { status: 400 });
       }
+    } else if (hasVideoInImageField(safeContent)) {
+      return NextResponse.json({ error: 'Videos can only be added to the Gallery page.' }, { status: 400 });
     }
 
     const { data, error } = await supabase

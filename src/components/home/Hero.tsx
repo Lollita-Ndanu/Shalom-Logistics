@@ -100,17 +100,9 @@ export default function Hero({ content = {} }: { content?: { headline?: string; 
     const top = topMistRef.current;
     if (!section || !bottom || !top) return;
 
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
-    const canHover = window.matchMedia(
-      "(hover: hover) and (pointer: fine)"
-    ).matches;
-
-    if (!canHover || reduceMotion) return;
-
-    bottom.style.animation = "none";
-    top.style.animation = "none";
+    const desktopMq = window.matchMedia("(min-width: 768px)");
+    const hoverMq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const reduceMq = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     let target = 0;
     let pos = 0;
@@ -118,6 +110,7 @@ export default function Hero({ content = {} }: { content?: { headline?: string; 
     let lastX = 0;
     let lastTime = 0;
     let raf = 0;
+    let parallaxActive = false;
 
     const maxShift = () => window.innerWidth * 0.4;
 
@@ -141,6 +134,7 @@ export default function Hero({ content = {} }: { content?: { headline?: string; 
     };
 
     const loop = () => {
+      if (!parallaxActive) return;
       const ease = Math.min(0.3, 0.05 + speed / 3000);
       pos += (target - pos) * ease;
       speed *= 0.9;
@@ -149,14 +143,50 @@ export default function Hero({ content = {} }: { content?: { headline?: string; 
       raf = requestAnimationFrame(loop);
     };
 
-    section.addEventListener("pointermove", onMove);
-    section.addEventListener("pointerleave", onLeave);
-    raf = requestAnimationFrame(loop);
-
-    return () => {
+    const stopParallax = () => {
+      if (!parallaxActive) return;
+      parallaxActive = false;
+      window.cancelAnimationFrame(raf);
+      raf = 0;
       section.removeEventListener("pointermove", onMove);
       section.removeEventListener("pointerleave", onLeave);
-      cancelAnimationFrame(raf);
+      bottom.style.transform = "";
+      top.style.transform = "";
+      bottom.style.animation = "";
+      top.style.animation = "";
+    };
+
+    const startParallax = () => {
+      stopParallax();
+      if (!desktopMq.matches || !hoverMq.matches || reduceMq.matches) return;
+
+      bottom.style.animation = "none";
+      top.style.animation = "none";
+      parallaxActive = true;
+      section.addEventListener("pointermove", onMove);
+      section.addEventListener("pointerleave", onLeave);
+      raf = window.requestAnimationFrame(loop);
+    };
+
+    // Some mobile browsers leave masked/composited layers with a stalled CSS
+    // animation after hydration or client-side navigation. Forcing a reflow
+    // restarts the animation so it moves immediately without a page reload.
+    for (const cloud of [bottom, top]) {
+      cloud.style.animation = "none";
+      void cloud.offsetWidth;
+      cloud.style.animation = "";
+    }
+
+    startParallax();
+    desktopMq.addEventListener("change", startParallax);
+    hoverMq.addEventListener("change", startParallax);
+    reduceMq.addEventListener("change", startParallax);
+
+    return () => {
+      stopParallax();
+      desktopMq.removeEventListener("change", startParallax);
+      hoverMq.removeEventListener("change", startParallax);
+      reduceMq.removeEventListener("change", startParallax);
     };
   }, []);
 

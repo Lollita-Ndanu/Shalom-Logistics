@@ -1,9 +1,10 @@
 import Image from "next/image";
 
-export default function FloatingWhatsApp() {
+export default function FloatingWhatsApp({ whatsappNumber = "254751794728" }: { whatsappNumber?: string }) {
+  const digits = whatsappNumber.replace(/\D/g, "") || "254751794728";
   return (
     <a
-      href="https://wa.me/254751794728"
+      href={`https://wa.me/${digits}`}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with Shalom Logistics on WhatsApp"

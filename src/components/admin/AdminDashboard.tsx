@@ -4,10 +4,11 @@ import { useMemo, useState, useEffect, useRef, type FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { LockKeyhole, Menu, Search, X, ChevronDown, LayoutDashboard, Truck, Users, MessageSquare, Settings, Quote, Image as ImageIcon, Mail } from "lucide-react";
+import { LockKeyhole, Menu, Search, X, ChevronDown, LayoutDashboard, Truck, Users, MessageSquare, Settings, Quote, Image as ImageIcon, Trash2 } from "lucide-react";
 import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, Input, LoadingState, Table, Toast, Tabs } from "@/components/admin/ui";
 import { FALLBACK_ITEMS as PUBLIC_GALLERY_FALLBACKS } from "@/components/gallery/GalleryClient";
 import ServicesPanel from "@/components/admin/ServicesPanel";
+import SettingsPanel from "@/components/admin/SettingsPanel";
 
 type SearchInputHandle = HTMLInputElement;
 
@@ -38,7 +39,7 @@ const NAV_ITEMS: { label: AdminPage; href: string; icon: typeof LayoutDashboard 
 ];
 
 const PUBLIC_PAGE_TABS = [
-  { slug: "all", label: "All pages" }, { slug: "home", label: "Home" }, { slug: "about", label: "About" },
+  { slug: "home", label: "Home" }, { slug: "about", label: "About" },
   { slug: "services", label: "Services" }, { slug: "gallery", label: "Gallery page" }, { slug: "quote", label: "Quote" },
   { slug: "contact", label: "Contact" }, { slug: "credits", label: "Credits" },
 ];
@@ -57,6 +58,10 @@ const GROUPS: Record<string, string> = {
   services: "Services", services_hero: "Services", services_popular: "Services", services_categories: "Services", services_detail: "Services", services_how_it_works: "Services", services_areas: "Services", services_cta: "Services",
   about_story: "About Us", about_purpose: "About Us", about_trust: "About Us", gallery_content: "Gallery", quote_content: "Quote Page", contact_content: "Contact Page", email_welcome: "Welcome Email",
 };
+const DEDICATED_PANEL_SECTIONS = new Set([
+  "gallery_content",
+  "services_categories", "services_detail", "home_services", "services_popular", "services_how_it_works", "services_areas",
+]);
 export default function AdminDashboard({ page, ownerEmail, displayName, initialData, dataError, signOut }: { page: AdminPage; ownerEmail: string; displayName: string; initialData: DashboardData; dataError: string; signOut: () => Promise<void> }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -200,10 +205,10 @@ export default function AdminDashboard({ page, ownerEmail, displayName, initialD
         <form action={signOut} className="border-t border-white/10 pt-4"><Button type="submit" variant="sidebar" className="w-full justify-start">Sign out</Button></form>
       </aside>
       <header className="sticky top-0 z-30 border-b border-[var(--admin-border)] bg-white text-[var(--admin-ink)] shadow-sm">
-        <div className="mx-auto flex min-h-20 max-w-[1500px] items-center gap-3 px-4 sm:px-8">
-          <button aria-label="Open menu" onClick={() => setDrawerOpen(true)} className="rounded-lg p-2 hover:bg-slate-100 lg:hidden"><Menu size={22} /></button>
-          <h1 className="min-w-0 flex-1 text-xl font-bold sm:text-2xl">{pageTitle}</h1>
-          <div className="relative w-full max-w-sm"><Input aria-label="Search admin" placeholder="Search quotes, messages, content…" leading={<Search size={17} />} inputRef={searchInput} value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setSearchActive(true); setActiveResult(0); }} onFocus={() => setSearchActive(true)} onKeyDown={(event) => { if (event.key === "ArrowDown") { event.preventDefault(); activateSearchResult(1); } else if (event.key === "ArrowUp") { event.preventDefault(); activateSearchResult(-1); } else if (event.key === "Enter" && flatSearchHits[activeResult]) { event.preventDefault(); window.location.href = flatSearchHits[activeResult].href; } }} />{searchActive && searchQuery.trim() ? <SearchDropdown groups={searchGroups} query={debouncedSearch} loading={searchLoading} activeResult={activeResult} onHover={setActiveResult} onClose={() => setSearchActive(false)} /> : null}</div>
+        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-3 px-4 py-3 sm:px-8 lg:min-h-20">
+          <button aria-label="Open menu" onClick={() => setDrawerOpen(true)} className="shrink-0 rounded-lg p-2 hover:bg-slate-100 lg:hidden"><Menu size={22} /></button>
+          <h1 className="min-w-0 flex-1 truncate text-xl font-bold sm:text-2xl">{pageTitle}</h1>
+          <div className="relative order-last w-full sm:order-none sm:w-64 lg:w-full lg:max-w-sm"><Input aria-label="Search admin" placeholder="Search quotes, messages, content…" leading={<Search size={17} />} inputRef={searchInput} value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setSearchActive(true); setActiveResult(0); }} onFocus={() => setSearchActive(true)} onKeyDown={(event) => { if (event.key === "ArrowDown") { event.preventDefault(); activateSearchResult(1); } else if (event.key === "ArrowUp") { event.preventDefault(); activateSearchResult(-1); } else if (event.key === "Enter" && flatSearchHits[activeResult]) { event.preventDefault(); window.location.href = flatSearchHits[activeResult].href; } }} />{searchActive && searchQuery.trim() ? <SearchDropdown groups={searchGroups} query={debouncedSearch} loading={searchLoading} activeResult={activeResult} onHover={setActiveResult} onClose={() => setSearchActive(false)} /> : null}</div>
           <div className="relative shrink-0"><Button type="button" variant="outline" aria-expanded={profileOpen} onClick={() => setProfileOpen((open) => !open)} className="gap-2"><span className="hidden max-w-48 truncate text-sm sm:inline">{ownerEmail}</span><span className="sm:hidden">Profile</span><ChevronDown size={16} /></Button>{profileOpen ? <div className="absolute right-0 top-full z-40 mt-2 w-48 rounded-xl border border-[var(--admin-border)] bg-white p-2 shadow-xl"><form action={signOut}><button className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-slate-100">Sign out</button></form></div> : null}</div>
         </div>
         <div className="border-t border-slate-100 px-4 py-2 text-xs text-[var(--admin-muted)] sm:px-8">Signed in as <span className="break-all">{ownerEmail}</span></div>
@@ -214,12 +219,11 @@ export default function AdminDashboard({ page, ownerEmail, displayName, initialD
         {page === "Quotes" ? <QuotesPanel quotes={data.quotes} busy={busy} error={dataError} focusedItem={focusedItem} onMutate={mutateAndReport} onRefresh={refreshAdminData} /> : null}
         {page === "Messages" ? <MessagesPanel messages={data.messages} busy={busy} error={dataError} focusedItem={focusedItem} onMutate={mutateAndReport} onRefresh={refreshAdminData} /> : null}
         {page === "Subscribers" ? <SubscribersPanel subscribers={data.subscribers} busy={busy} error={dataError} onExport={exportSubscribers} onMutate={mutateAndReport} onRefresh={refreshAdminData} /> : null}
-        {page === "Settings" && searchParams.get("panel") === "newsletter" ? <NewsletterPlaceholder /> : null}
-        {page === "Site Content" ? <div className="mt-2 space-y-6"><Link href="/admin/gallery" className="flex items-center gap-4 rounded-xl border border-[var(--admin-border)] bg-white p-5 transition hover:border-[var(--admin-green)] hover:bg-emerald-50"><ImageIcon className="text-[var(--admin-green)]" /><span><strong className="block">Manage photos in Gallery</strong><span className="text-sm text-[var(--admin-muted)]">View and manage page images in one place.</span></span></Link>{groupedSections.map(([group, sections]) => <section key={group}><h2 className="mb-3 text-lg font-bold text-[var(--admin-green-dark)]">{group}</h2><div className="grid gap-4 xl:grid-cols-2">{sections.filter((section) => section.section_key !== "gallery_content").map((section) => <div key={section.section_key} id={section.section_key}><SectionEditor section={section} busy={busy === section.section_key} onSave={(values) => mutate({ action: "save-section", sectionKey: section.section_key, ...values })} /></div>)}</div></section>)}</div> : null}
+        {page === "Site Content" ? <div className="mt-2 space-y-6"><Link href="/admin/gallery" className="flex items-center gap-4 rounded-xl border border-[var(--admin-border)] bg-white p-5 transition hover:border-[var(--admin-green)] hover:bg-emerald-50"><ImageIcon className="text-[var(--admin-green)]" /><span><strong className="block">Manage photos in Gallery</strong><span className="text-sm text-[var(--admin-muted)]">View and manage page images in one place.</span></span></Link>{groupedSections.map(([group, sections]) => { const editableSections = sections.filter((section) => !DEDICATED_PANEL_SECTIONS.has(section.section_key)); return editableSections.length ? <section key={group}><h2 className="mb-3 text-lg font-bold text-[var(--admin-green-dark)]">{group}</h2><div className="grid gap-4 xl:grid-cols-2">{editableSections.map((section) => <div key={section.section_key} id={section.section_key}><SectionEditor section={section} busy={busy === section.section_key} onSave={(values) => mutate({ action: "save-section", sectionKey: section.section_key, ...values })} /></div>)}</div></section> : null; })}</div> : null}
     {page === "Gallery" ? <GalleryPanel sections={data.sections} sectionsError={dataError} busy={busy} onMutate={mutateAndReport} /> : null}
         {page === "Services" ? <ServicesPanel sections={data.sections} busy={busy === "loading"} onSave={mutateAndReport} /> : null}
         {page === "Testimonies" ? <TestimoniesMaster sections={data.sections} busy={busy} onMutate={mutateAndReport} /> : null}
-        {page === "Settings" ? <Card className="mt-2" title="Settings"><EmptyState title="Settings panel" description="Manage shared site settings." /></Card> : null}
+        {page === "Settings" ? <SettingsPanel sections={data.sections} subscribers={data.subscribers} onSave={mutateAndReport} initialPanel={searchParams.get("panel")} /> : null}
       </div>
     </main>
   );
@@ -254,7 +258,8 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
   const [pendingAltSave, setPendingAltSave] = useState<{ photo: PhotoRef; alt: string } | null>(null);
   const [pendingChange, setPendingChange] = useState<{ photo: PhotoRef; url?: string } | null>(null);
   const [replacementUpload, setReplacementUpload] = useState<{ photo: PhotoRef; url: string } | null>(null);
-  const [newPhotoFile, setNewPhotoFile] = useState<File | null>(null);
+  const [newPhotoFiles, setNewPhotoFiles] = useState<File[]>([]);
+  const [newPhotoCategory, setNewPhotoCategory] = useState("");
   const [newPhotoStatus, setNewPhotoStatus] = useState("");
   const [newPhotoError, setNewPhotoError] = useState("");
   const newPhotoInput = useRef<HTMLInputElement>(null);
@@ -263,7 +268,7 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const activeSections = localGallerySections.length ? localGallerySections : sections;
-  const photos = activeSections.flatMap((section) => [...getSectionPhotos(section), ...getStaticPhotos().filter((photo) => photo.sectionKey === section.section_key)]);
+  const photos = activeSections.flatMap((section) => [...getSectionPhotos(section), ...getStaticPhotos().filter((photo) => photo.sectionKey === section.section_key)]).filter((photo) => !photo.locked);
   const gallerySection = activeSections.find((section) => section.section_key === "gallery_content");
   const galleryContent = gallerySection?.content;
   const galleryItems: unknown[] = galleryContent && Array.isArray(galleryContent.items) ? galleryContent.items : [];
@@ -277,8 +282,8 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
   if (!galleryItems.length) photos.push(...galleryFallbackPhotos);
   else photos.push(...galleryPublicPhotos.filter((photo) => !photos.some((existing) => existing.url === photo.url && existing.page === "Gallery")));
   photos.forEach((photo) => { if (photo.page === "Gallery") photo.page = "Gallery page"; });
-  const newPhotoPreview = useMemo(() => newPhotoFile ? URL.createObjectURL(newPhotoFile) : "", [newPhotoFile]);
-  useEffect(() => () => { if (newPhotoPreview) URL.revokeObjectURL(newPhotoPreview); }, [newPhotoPreview]);
+  const newPhotoPreviews = useMemo(() => newPhotoFiles.map((file) => URL.createObjectURL(file)), [newPhotoFiles]);
+  useEffect(() => () => newPhotoPreviews.forEach((preview) => URL.revokeObjectURL(preview)), [newPhotoPreviews]);
   const selected = selectedOverride ?? (selectedPhotoId ? photos.find((photo) => photo.key === selectedPhotoId) ?? null : null);
   const setSelected = setSelectedOverride;
   const pageSelection = gallerySearchParams.get("page");
@@ -286,8 +291,34 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
   const justUploadedUrl = newPhotoStatus.split("|")[1];
   const anchorUrl = addedUrl || justUploadedUrl;
   if (anchorUrl && !photos.some((photo) => photo.url === anchorUrl)) photos.unshift({ key: `gallery-upload:${anchorUrl}`, page: "Gallery page", section: "Gallery · Other Services", url: anchorUrl, alt: "Shalom Logistics gallery photo", caption: "Shalom Logistics gallery photo", locked: false, path: [], sectionKey: "gallery_content" });
-  const effectivePage = filterPageOverride ?? (pageSelection ? PUBLIC_PAGE_TABS.find((item) => item.slug === pageSelection)?.label ?? "All pages" : "All pages");
-  const filtered = photos.filter((photo) => (effectivePage === "All pages" || photo.page === effectivePage || photo.page === "Shared") && (!sharedOnly || photos.filter((other) => other.url === photo.url).length > 1) && (!missingAlt || !photo.alt.trim()) && (!query || `${photo.alt} ${photo.caption} ${photo.page} ${photo.section} ${photo.url}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())));
+  const effectivePage = filterPageOverride ?? (pageSelection ? PUBLIC_PAGE_TABS.find((item) => item.slug === pageSelection)?.label ?? "Home" : "Home");
+  const filtered = photos.filter((photo) => (photo.page === effectivePage || photo.page === "Shared") && (!sharedOnly || photos.filter((other) => other.url === photo.url).length > 1) && (!missingAlt || !photo.alt.trim()) && (!query || `${photo.alt} ${photo.caption} ${photo.page} ${photo.section} ${photo.url}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())));
+  const serviceCategoryItems = (() => {
+    const section = activeSections.find((item) => item.section_key === "services_categories");
+    return section && Array.isArray(section.content.items) ? section.content.items as Record<string, unknown>[] : [];
+  })();
+  const serviceDetailItems = (() => {
+    const section = activeSections.find((item) => item.section_key === "services_detail");
+    return section && Array.isArray(section.content.items) ? section.content.items as Record<string, unknown>[] : [];
+  })();
+  const serviceIndexBySlug = new Map(serviceCategoryItems.map((item, index) => [String(item.slug ?? ""), index]));
+  const servicePhotoIndex = (photo: PhotoRef) => {
+    const pathIndex = Number(photo.path[1]);
+    if (photo.sectionKey === "services_categories") return pathIndex;
+    if (photo.sectionKey === "services_detail") {
+      const detailItem = serviceDetailItems[pathIndex];
+      const slug = detailItem ? String(detailItem.slug ?? "") : "";
+      return serviceIndexBySlug.get(slug) ?? pathIndex;
+    }
+    return -1;
+  };
+  const serviceGroups = serviceCategoryItems.map((item, index) => ({
+    key: String(index),
+    name: String(item.name ?? item.title ?? `Service category ${index + 1}`),
+    main: filtered.filter((photo) => servicePhotoIndex(photo) === index && photo.sectionKey === "services_categories"),
+    sub: filtered.filter((photo) => servicePhotoIndex(photo) === index && photo.sectionKey === "services_detail"),
+  })).filter((group) => group.main.length || group.sub.length);
+  const serviceOtherPhotos = filtered.filter((photo) => photo.sectionKey === "services_areas" || photo.sectionKey === "services_popular");
   async function savePhoto(photo: PhotoRef, change: { url?: string; alt?: string; remove?: boolean }, applyEverywhere = false) {
     const section = activeSections.find((item) => item.section_key === photo.sectionKey);
     if (!section || photo.locked) return;
@@ -438,7 +469,7 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
   }
 
   async function removePhoto(photo: PhotoRef) {
-    const targets = photos.filter((item) => item.url === photo.url && item.sectionKey === "gallery_content");
+    const targets = photos.filter((item) => item.url === photo.url);
     const groups = new Map<string, PhotoRef[]>();
     for (const item of targets) groups.set(item.sectionKey, [...(groups.get(item.sectionKey) ?? []), item]);
     setRemoveError("");
@@ -451,7 +482,10 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
         continue;
       }
       setChangeProgress(`Removing from ${section.label}…`);
-      const content = prepareGalleryContent(section.content);
+      const content = section.section_key === "gallery_content" ? prepareGalleryContent(section.content) : structuredClone(section.content);
+      if (section.section_key === "gallery_content" && photo.key.startsWith("gallery-fallback:") && !galleryItems.length) {
+        content.items = PUBLIC_GALLERY_FALLBACKS.map((item) => ({ ...item }));
+      }
       const arrayRemovals = removals.filter((item) => item.path.some((part) => /^\d+$/.test(part)));
       const directRemovals = removals.filter((item) => !item.path.some((part) => /^\d+$/.test(part)));
       for (const item of directRemovals) {
@@ -479,7 +513,7 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
         const result = await onMutate({ action: "save-section", sectionKey: section.section_key, label: section.label, isVisible: section.is_visible, content });
         if (!result.ok) throw new Error(result.error ?? "Update failed.");
         const verified = result.data?.sections.find((item) => item.section_key === sectionKey);
-        if (!verified || JSON.stringify(verified.content) !== JSON.stringify(content)) throw new Error("Updated Gallery Content was not confirmed after refresh.");
+        if (!verified || JSON.stringify(verified.content) !== JSON.stringify(content)) throw new Error(`Updated ${section.label} was not confirmed after refresh.`);
         setLocalGallerySections(result.data!.sections);
       } catch (error) {
         failed = true;
@@ -509,62 +543,70 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
     finally { setUploading(false); }
   }
 
-  function chooseNewPhoto(file?: File) {
+  function chooseNewPhotos(fileList?: FileList | File[]) {
     setNewPhotoError("");
     setNewPhotoStatus("");
-    if (!file) return;
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/avif"];
-    if (!allowedTypes.includes(file.type)) {
-      setNewPhotoFile(null);
+    if (!fileList?.length) return;
+    const files = Array.from(fileList);
+    if (files.length > 10) {
+      setNewPhotoFiles([]);
       if (newPhotoInput.current) newPhotoInput.current.value = "";
-      setNewPhotoError("Choose a JPG, PNG, WebP, or AVIF image.");
+      setNewPhotoError("Choose no more than 10 photos or videos at a time.");
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setNewPhotoFile(null);
-      setNewPhotoError("The image must be 10 MB or smaller.");
+    const maxSizes: Record<string, number> = { "image/jpeg": 10, "image/png": 10, "image/webp": 10, "image/avif": 10, "video/mp4": 50, "video/webm": 50, "video/quicktime": 50 };
+    const invalid = files.find((file) => !maxSizes[file.type] || file.size > maxSizes[file.type] * 1024 * 1024);
+    if (invalid) {
+      setNewPhotoFiles([]);
+      if (newPhotoInput.current) newPhotoInput.current.value = "";
+      setNewPhotoError(!maxSizes[invalid.type] ? "Use JPG, PNG, WebP, AVIF, MP4, WebM, or MOV files." : `${invalid.name} exceeds its ${maxSizes[invalid.type]} MB limit.`);
       return;
     }
-    setNewPhotoFile(file);
+    setNewPhotoFiles(files);
   }
 
   async function uploadNewPhoto() {
-    if (!newPhotoFile || uploadInFlight.current) return;
+    if (!newPhotoFiles.length || uploadInFlight.current) return;
+    if (!newPhotoCategory) {
+      setNewPhotoError("Choose a category before adding these files.");
+      return;
+    }
     uploadInFlight.current = true;
     setUploading(true);
     setNewPhotoError("");
-    setNewPhotoStatus("Preparing upload…");
+    setNewPhotoStatus(`Uploading 0 of ${newPhotoFiles.length}…`);
     try {
-      const response = await fetch("/api/upload-url", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contentType: newPhotoFile.type, fileSize: newPhotoFile.size }) });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Could not prepare upload.");
-      setNewPhotoStatus("Uploading photo…");
-      const uploaded = await fetch(result.uploadUrl, { method: "PUT", headers: { "Content-Type": newPhotoFile.type }, body: newPhotoFile });
-      if (!uploaded.ok) throw new Error("Upload failed. You can retry this file.");
+      const uploadedItems: { src: string; type: "image" | "video" }[] = [];
+      for (const [index, file] of newPhotoFiles.entries()) {
+        setNewPhotoStatus(`Uploading ${index + 1} of ${newPhotoFiles.length}…`);
+        const response = await fetch("/api/upload-url", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contentType: file.type, fileSize: file.size }) });
+        const result = await response.json();
+        if (!response.ok) throw new Error(`${file.name}: ${result.error ?? "Could not prepare upload."}`);
+        const uploaded = await fetch(result.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+        if (!uploaded.ok) throw new Error(`${file.name}: upload failed. You can retry the batch.`);
+        uploadedItems.push({ src: result.publicUrl, type: file.type.startsWith("video/") ? "video" : "image" });
+      }
       const section = activeSections.find((item) => item.section_key === "gallery_content");
       if (!section) throw new Error("Gallery Content is unavailable. You can retry this file.");
       const content = prepareGalleryContent(section.content);
       const existing: unknown[] = Array.isArray(content.items) && content.items.length ? content.items : PUBLIC_GALLERY_FALLBACKS.map((item) => ({ ...item }));
-      const newItem = { src: result.publicUrl, alt: "Shalom Logistics gallery photo", category: "Other Services", type: "image", isVisible: true };
-      const nextItems = [...existing, newItem];
+      const nextItems = [...existing, ...uploadedItems.map(({ src, type }) => ({ src, alt: "", category: newPhotoCategory, type, isVisible: true }))];
       content.items = nextItems;
       content.categories = [...GALLERY_CATEGORIES];
       const saveResult = await onMutate({ action: "save-section", sectionKey: section.section_key, label: section.label, isVisible: section.is_visible, content });
       if (!saveResult.ok) throw new Error(saveResult.error ?? "Gallery update failed.");
       const verifiedSection = saveResult.data?.sections.find((item) => item.section_key === section.section_key);
       const verifiedItems = Array.isArray(verifiedSection?.content.items) ? verifiedSection.content.items : [];
-      if (!verifiedSection || !verifiedItems.some((item) => item && typeof item === "object" && (item as Record<string, unknown>).src === result.publicUrl)) throw new Error("The image uploaded, but refreshed Gallery Content did not include the new photo.");
+      if (!verifiedSection || !uploadedItems.every(({ src }) => verifiedItems.some((item) => item && typeof item === "object" && (item as Record<string, unknown>).src === src))) throw new Error("The uploaded media could not be confirmed in refreshed Gallery Content.");
       setLocalGallerySections(saveResult.data!.sections);
-      const uploadedPhoto: PhotoRef = { key: `gallery-upload:${result.key ?? result.publicUrl}`, page: "Gallery page", section: "Gallery · Other Services", url: result.publicUrl, alt: "Shalom Logistics gallery photo", caption: "Shalom Logistics gallery photo", locked: false, path: ["items", String(nextItems.length - 1), "src"], sectionKey: "gallery_content" };
-      photos.unshift(uploadedPhoto);
-      setLocalGallerySections(saveResult.data!.sections);
-      setNewPhotoStatus(`Photo added to Gallery Content|${result.publicUrl}`);
-      setNewPhotoFile(null);
+      setNewPhotoStatus(`${uploadedItems.length} ${uploadedItems.length === 1 ? "item" : "items"} added to Gallery Content|${uploadedItems[0].src}`);
+      setNewPhotoFiles([]);
+      setNewPhotoCategory("");
       if (newPhotoInput.current) newPhotoInput.current.value = "";
       setFilterPageOverride("Gallery page");
       router.replace("/admin/gallery?page=gallery");
     } catch (error) {
-      setNewPhotoError(error instanceof Error ? error.message : "Upload failed. You can retry this file.");
+      setNewPhotoError(error instanceof Error ? error.message : "Upload failed. You can retry the batch.");
       setNewPhotoStatus("");
     } finally {
       uploadInFlight.current = false;
@@ -574,28 +616,52 @@ function GalleryPanel({ sections, sectionsError, busy, onMutate }: { sections: S
 
   function clearNewPhoto() {
     if (uploading) return;
-    setNewPhotoFile(null);
+    setNewPhotoFiles([]);
+    setNewPhotoCategory("");
     setNewPhotoError("");
     setNewPhotoStatus("");
     if (newPhotoInput.current) newPhotoInput.current.value = "";
   }
 
+  function renderPhotoCard(photo: PhotoRef) {
+    const uses = photos.filter((item) => item.url === photo.url);
+    const usage = usageLocations(uses);
+    const sharedPages = [...new Set(uses.flatMap((item) => item.page === "Shared" ? sharedLocationPages(item) : [item.page]))];
+    const cardId = photo.key.startsWith("gallery-upload:") ? "uploaded-gallery-photo" : undefined;
+    return <article id={cardId} key={photo.key} className="relative overflow-hidden rounded-xl border border-[var(--admin-border)] bg-white shadow-sm">{!photo.locked ? <button type="button" onClick={() => setPendingDelete(photo)} aria-label={`Delete ${photo.alt || "photo"}`} title="Delete photo" className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-red-600 text-white shadow-md transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"><Trash2 size={16} /></button> : null}<button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="relative block aspect-[16/10] w-full bg-slate-100 text-left"><Image src={photo.url} alt={photo.alt} fill unoptimized sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw" className="object-cover" />{photo.locked ? <span className="absolute left-2 top-2"><Badge><LockKeyhole size={12} className="mr-1" />Managed by developer</Badge></span> : null}</button><div className="space-y-2 p-4"><p className="font-bold">{photo.section} · {photo.page}</p>{sharedPages.length > 1 ? <span title={`Appears on: ${usage}`}><Badge variant="gold">Shared: appears on {sharedPages.length} pages · {sharedPages.join(", ")}</Badge></span> : null}<p className="text-sm text-[var(--admin-muted)]">{photo.alt || photo.caption || "No alt text"}</p><p className="text-xs text-[var(--admin-muted)]">Used on: {usage}</p><div className="flex items-center justify-between"><button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="text-sm font-semibold text-[var(--admin-green-dark)] underline">View details</button>{photo.sectionKey === "gallery_content" && !photo.locked ? <span className="flex gap-2"><button type="button" aria-label="Move photo up" onClick={() => void moveGalleryPhoto(photo, -1)}>↑</button><button type="button" aria-label="Move photo down" onClick={() => void moveGalleryPhoto(photo, 1)}>↓</button></span> : null}</div></div></article>;
+  }
+
   if (sectionsError) return <ErrorState title="Could not load photos" description={sectionsError} />;
   if (busy === "loading") return <LoadingState label="Loading photos…" />;
   return <section className="mt-2 space-y-5">
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"><Input aria-label="Search photos" placeholder="Search alt text, page, section…" value={query} onChange={(event) => setQuery(event.target.value)} /><select aria-label="Filter by page" value={effectivePage} onChange={(event) => { setFilterPageOverride(event.target.value); const slug = PUBLIC_PAGE_TABS.find((tab) => tab.label === event.target.value)?.slug ?? "all"; router.replace(slug === "all" ? "/admin/gallery" : `/admin/gallery?page=${slug}`); }} className="min-h-10 rounded-lg border border-[var(--admin-border)] bg-white px-3 text-sm">{PUBLIC_PAGE_TABS.map((tab) => <option key={tab.slug} value={tab.label}>{tab.label}</option>)}</select><div className="flex flex-wrap items-center gap-4 text-sm"><label className="flex items-center gap-2"><input type="checkbox" checked={sharedOnly} onChange={(event) => setSharedOnly(event.target.checked)} />Shared only</label><label className="flex items-center gap-2"><input type="checkbox" checked={missingAlt} onChange={(event) => setMissingAlt(event.target.checked)} />Missing alt text</label></div></div>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"><Input aria-label="Search photos" placeholder="Search alt text, page, section…" value={query} onChange={(event) => setQuery(event.target.value)} /><select aria-label="Filter by page" value={effectivePage} onChange={(event) => { setFilterPageOverride(event.target.value); const slug = PUBLIC_PAGE_TABS.find((tab) => tab.label === event.target.value)?.slug ?? "home"; router.replace(`/admin/gallery?page=${slug}`); }} className="min-h-10 rounded-lg border border-[var(--admin-border)] bg-white px-3 text-sm">{PUBLIC_PAGE_TABS.map((tab) => <option key={tab.slug} value={tab.label}>{tab.label}</option>)}</select><div className="flex flex-wrap items-center gap-4 text-sm"><label className="flex items-center gap-2"><input type="checkbox" checked={sharedOnly} onChange={(event) => setSharedOnly(event.target.checked)} />Shared only</label><label className="flex items-center gap-2"><input type="checkbox" checked={missingAlt} onChange={(event) => setMissingAlt(event.target.checked)} />Missing alt text</label></div></div>
     {uploadError || removeError ? <ErrorState title="Photo action failed" description={uploadError || removeError} /> : null}{changeProgress ? <Toast>{changeProgress}</Toast> : null}
-    {filtered.length ? <div className="space-y-6">{[...new Set(filtered.map((photo) => photo.section))].map((sectionName) => <section key={sectionName}><h2 className="mb-3 text-lg font-bold">{sectionName}</h2><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.filter((photo) => photo.section === sectionName).map((photo) => { const uses = photos.filter((item) => item.url === photo.url); const usage = usageLocations(uses); const sharedPages = [...new Set(uses.flatMap((item) => item.page === "Shared" ? sharedLocationPages(item) : [item.page]))]; const cardId = photo.key.startsWith("gallery-upload:") ? "uploaded-gallery-photo" : undefined; return <article id={cardId} key={photo.key} className="overflow-hidden rounded-xl border border-[var(--admin-border)] bg-white shadow-sm"><button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="relative block aspect-[16/10] w-full bg-slate-100 text-left"><Image src={photo.url} alt={photo.alt} fill unoptimized sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw" className="object-cover" />{photo.locked ? <span className="absolute left-2 top-2"><Badge><LockKeyhole size={12} className="mr-1" />Managed by developer</Badge></span> : null}</button><div className="space-y-2 p-4"><p className="font-bold">{photo.section} · {photo.page}</p>{sharedPages.length > 1 ? <span title={`Appears on: ${usage}`}><Badge variant="gold">Shared: appears on {sharedPages.length} pages · {sharedPages.join(", ")}</Badge></span> : null}<p className="text-sm text-[var(--admin-muted)]">{photo.alt || photo.caption || "No alt text"}</p><p className="text-xs text-[var(--admin-muted)]">Used on: {usage}</p><div className="flex items-center justify-between"><button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="text-sm font-semibold text-[var(--admin-green-dark)] underline">View details</button>{photo.sectionKey === "gallery_content" && !photo.locked ? <span className="flex gap-2"><button type="button" aria-label="Move photo up" onClick={() => void moveGalleryPhoto(photo, -1)}>↑</button><button type="button" aria-label="Move photo down" onClick={() => void moveGalleryPhoto(photo, 1)}>↓</button></span> : null}</div></div></article>; })}</div></section>)}</div> : <EmptyState title={effectivePage === "All pages" ? "No photos found" : `No photos on ${effectivePage}`} description="Try another page or adjust the current filters." />}
-    {selected ? <div className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto bg-black/60 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}><section role="dialog" aria-modal="true" aria-labelledby="photo-dialog-title" className="w-full max-w-3xl rounded-2xl bg-white p-5 shadow-2xl"><div className="flex items-center justify-between"><h2 id="photo-dialog-title" className="text-xl font-bold">Photo details</h2><button type="button" onClick={() => setSelected(null)} aria-label="Close photo details">×</button></div><div className="relative mt-4 h-[50vh] w-full"><Image src={selected.url} alt={selected.alt} fill unoptimized sizes="(max-width: 768px) 100vw, 768px" className="rounded-xl bg-slate-100 object-contain" /></div><p className="mt-3 break-all text-xs text-[var(--admin-muted)]">{selected.url}</p><p className="mt-2 text-sm">Used in: {photos.filter((photo) => photo.url === selected.url).map((photo) => `${photo.page} / ${photo.section}`).join("; ")}</p>{selected.locked ? <div className="mt-4"><LockedField /></div> : <><label className="mt-4 block text-sm font-semibold">Alt text / caption<input value={altText} onChange={(event) => setAltText(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><div className="mt-4 flex flex-wrap gap-2"><Button type="button" onClick={() => { if (photos.filter((photo) => photo.url === selected.url).length > 1) setPendingAltSave({ photo: selected, alt: altText }); else void savePhoto(selected, { alt: altText }); }}>Save alt text</Button><label className="inline-flex cursor-pointer items-center rounded-lg border border-[var(--admin-border)] px-4 py-2 text-sm font-semibold">{uploading ? "Uploading…" : "Replace image"}<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploading} onChange={(event) => void upload(event.target.files?.[0])} className="hidden" /></label><Button type="button" variant="danger" onClick={() => setPendingDelete(selected)}>Remove image</Button></div></>}</section></div> : null}
+    {effectivePage === "Services" ? <div className="space-y-5">
+      <div className="rounded-xl border border-[var(--admin-border)] bg-white p-4">
+        <p className="text-sm text-[var(--admin-muted)]">{serviceGroups.length} categories · main image and subservices grouped together</p>
+      </div>
+      {serviceGroups.map((group) => <details key={group.key} className="group overflow-hidden rounded-xl border border-[var(--admin-border)] bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 [&::-webkit-details-marker]:hidden"><div><h2 className="text-lg font-bold">{group.name}</h2><p className="mt-1 text-sm text-[var(--admin-muted)]">{group.main.length} main image · {group.sub.length} subservice {group.sub.length === 1 ? "image" : "images"}</p></div><ChevronDown size={18} className="shrink-0 text-[var(--admin-muted)] transition-transform group-open:rotate-180" /></summary>
+        <div className="space-y-4 border-t border-[var(--admin-border)] bg-slate-50/60 p-4">
+          <div><h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-[var(--admin-muted)]">Main service image</h3>{group.main.length ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{group.main.map(renderPhotoCard)}</div> : <p className="text-sm text-[var(--admin-muted)]">No main service image. Add one from the section above.</p>}</div>
+          <div><h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-[var(--admin-muted)]">Subservices</h3>{group.sub.length ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{group.sub.map(renderPhotoCard)}</div> : <p className="text-sm text-[var(--admin-muted)]">No subservice images in this category.</p>}</div>
+        </div>
+      </details>)}
+      {serviceOtherPhotos.length ? <div className="space-y-4">{[...new Set(serviceOtherPhotos.map((photo) => photo.section))].map((sectionName) => <section key={sectionName}><h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-[var(--admin-muted)]">{sectionName}</h3><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{serviceOtherPhotos.filter((photo) => photo.section === sectionName).map(renderPhotoCard)}</div></section>)}</div> : null}
+      {serviceGroups.length || serviceOtherPhotos.length ? null : <EmptyState title="No service images found" description="Try clearing the search or filters." />}
+    </div> : null}
+    {effectivePage === "Services" ? null : filtered.length ? <div className="space-y-6">{[...new Set(filtered.map((photo) => photo.section))].map((sectionName) => <section key={sectionName}><h2 className="mb-3 text-lg font-bold">{sectionName}</h2><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.filter((photo) => photo.section === sectionName).map((photo) => { const uses = photos.filter((item) => item.url === photo.url); const usage = usageLocations(uses); const sharedPages = [...new Set(uses.flatMap((item) => item.page === "Shared" ? sharedLocationPages(item) : [item.page]))]; const cardId = photo.key.startsWith("gallery-upload:") ? "uploaded-gallery-photo" : undefined; return <article id={cardId} key={photo.key} className="relative overflow-hidden rounded-xl border border-[var(--admin-border)] bg-white shadow-sm">{!photo.locked ? <button type="button" onClick={() => setPendingDelete(photo)} aria-label={`Delete ${photo.alt || "photo"}`} title="Delete photo" className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-red-600 text-white shadow-md transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"><Trash2 size={16} /></button> : null}<button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="relative block aspect-[16/10] w-full bg-slate-100 text-left"><Image src={photo.url} alt={photo.alt} fill unoptimized sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw" className="object-cover" />{photo.locked ? <span className="absolute left-2 top-2"><Badge><LockKeyhole size={12} className="mr-1" />Managed by developer</Badge></span> : null}</button><div className="space-y-2 p-4"><p className="font-bold">{photo.section} · {photo.page}</p>{sharedPages.length > 1 ? <span title={`Appears on: ${usage}`}><Badge variant="gold">Shared: appears on {sharedPages.length} pages · {sharedPages.join(", ")}</Badge></span> : null}<p className="text-sm text-[var(--admin-muted)]">{photo.alt || photo.caption || "No alt text"}</p><p className="text-xs text-[var(--admin-muted)]">Used on: {usage}</p><div className="flex items-center justify-between"><button type="button" onClick={() => { setSelected(photo); setAltText(photo.alt); }} className="text-sm font-semibold text-[var(--admin-green-dark)] underline">View details</button>{photo.sectionKey === "gallery_content" && !photo.locked ? <span className="flex gap-2"><button type="button" aria-label="Move photo up" onClick={() => void moveGalleryPhoto(photo, -1)}>↑</button><button type="button" aria-label="Move photo down" onClick={() => void moveGalleryPhoto(photo, 1)}>↓</button></span> : null}</div></div></article>; })}</div></section>)}</div> : <EmptyState title={`No photos on ${effectivePage}`} description="Try another page or adjust the current filters." />}
+    {selected ? <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}><section role="dialog" aria-modal="true" aria-labelledby="photo-dialog-title" className="w-full max-w-3xl rounded-2xl bg-white p-4 shadow-2xl sm:p-5"><div className="flex items-center justify-between"><h2 id="photo-dialog-title" className="text-xl font-bold">Photo details</h2><button type="button" onClick={() => setSelected(null)} aria-label="Close photo details">×</button></div><div className="relative mt-4 h-[50vh] w-full"><Image src={selected.url} alt={selected.alt} fill unoptimized sizes="(max-width: 768px) 100vw, 768px" className="rounded-xl bg-slate-100 object-contain" /></div><p className="mt-3 break-all text-xs text-[var(--admin-muted)]">{selected.url}</p><p className="mt-2 text-sm">Used in: {photos.filter((photo) => photo.url === selected.url).map((photo) => `${photo.page} / ${photo.section}`).join("; ")}</p>{selected.locked ? <div className="mt-4"><LockedField /></div> : <><label className="mt-4 block text-sm font-semibold">Alt text / caption<input value={altText} onChange={(event) => setAltText(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><div className="mt-4 flex flex-wrap gap-2"><Button type="button" onClick={() => { if (photos.filter((photo) => photo.url === selected.url).length > 1) setPendingAltSave({ photo: selected, alt: altText }); else void savePhoto(selected, { alt: altText }); }}>Save alt text</Button><label className="inline-flex cursor-pointer items-center rounded-lg border border-[var(--admin-border)] px-4 py-2 text-sm font-semibold">{uploading ? "Uploading…" : "Replace image"}<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploading} onChange={(event) => void upload(event.target.files?.[0])} className="hidden" /></label></div></>}</section></div> : null}
     {replacementUpload ? <ConfirmDialog open title="Replace this image?" description="Replacing an image changes the CMS reference. The uploaded original will remain in storage." confirmLabel="Replace image" onCancel={() => setReplacementUpload(null)} onConfirm={() => { const change = replacementUpload; setReplacementUpload(null); if (photos.filter((photo) => photo.url === change.photo.url).length > 1) setPendingChange(change); else void savePhoto(change.photo, { url: change.url }); }} /> : null}
-    {pendingDelete ? (() => { const uses = photos.filter((item) => item.url === pendingDelete.url && item.sectionKey === "gallery_content"); const sectionUses = photos.filter((item) => item.sectionKey === "gallery_content"); const warnLast = sectionUses.length <= 1; const locationList = usageLocations(uses); return <ConfirmDialog open title="Remove this photo from the website?" description={`${warnLast ? "This is the last Gallery Content photo; removing it will leave that public section empty. " : ""}This photo will stop appearing on: ${locationList}. The image file itself is kept, so it can be added back later.`} confirmLabel="Remove from Gallery page" cancelLabel="Cancel" onConfirm={() => { const photo = pendingDelete; setPendingDelete(null); void removePhoto(photo); }} onCancel={() => setPendingDelete(null)} />; })() : null}
+    {pendingDelete ? (() => { const uses = photos.filter((item) => item.url === pendingDelete.url); const galleryUses = photos.filter((item) => item.sectionKey === "gallery_content"); const warnLast = pendingDelete.sectionKey === "gallery_content" && galleryUses.length <= 1; const locationList = usageLocations(uses); return <ConfirmDialog open title="Remove this photo from the website?" description={`${warnLast ? "This is the last Gallery Content photo; removing it will leave that public section empty. " : ""}This photo will stop appearing on: ${locationList}. The image file itself is kept, so it can be added back later.`} confirmLabel="Remove photo" cancelLabel="Cancel" onConfirm={() => { const photo = pendingDelete; setPendingDelete(null); void removePhoto(photo); }} onCancel={() => setPendingDelete(null)} />; })() : null}
     {pendingAltSave ? <ConfirmDialog open title="Apply shared photo change?" description={`This photo also appears on: ${photos.filter((photo) => photo.url === pendingAltSave.photo.url).map((photo) => photo.page).filter((page, index, list) => list.indexOf(page) === index).join(", ")}. Apply this change there too?`} confirmLabel="Yes, apply everywhere" cancelLabel="No, only this page" onCancel={() => { const change = pendingAltSave; setPendingAltSave(null); void savePhoto(change.photo, { alt: change.alt }); }} onConfirm={() => { const change = pendingAltSave; setPendingAltSave(null); void applySharedChange(change); }} /> : null}
     {pendingChange ? <ConfirmDialog open title="Apply shared photo change?" description={`This photo also appears on: ${photos.filter((photo) => photo.url === pendingChange.photo.url).map((photo) => photo.page).filter((page, index, list) => list.indexOf(page) === index).join(", ")}. Apply this change there too?`} confirmLabel="Yes, apply everywhere" cancelLabel="No, only this page" onCancel={() => { const change = pendingChange; setPendingChange(null); if (change.url) void savePhoto(change.photo, { url: change.url }); }} onConfirm={() => { const change = pendingChange; setPendingChange(null); void applySharedChange(change); }} /> : null}
-    <section className="rounded-2xl border border-[var(--admin-border)] bg-white p-5 shadow-sm sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Add photo to Gallery</h2><span className="mt-2 inline-flex rounded-full bg-[var(--admin-gold-light)] px-3 py-1 text-xs font-semibold text-[var(--admin-ink)]">Adding to: Gallery Content (shown on the public Gallery page)</span></div></div>
-      <input ref={newPhotoInput} type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploading} onChange={(event) => chooseNewPhoto(event.target.files?.[0])} className="sr-only" aria-label="Choose photo to add to Gallery" />
-      {!newPhotoFile ? <button type="button" disabled={uploading} onClick={() => newPhotoInput.current?.click()} onDragOver={(event) => { event.preventDefault(); event.currentTarget.classList.add("border-[var(--admin-gold)]", "bg-amber-50"); }} onDragLeave={(event) => { event.currentTarget.classList.remove("border-[var(--admin-gold)]", "bg-amber-50"); }} onDrop={(event) => { event.preventDefault(); event.currentTarget.classList.remove("border-[var(--admin-gold)]", "bg-amber-50"); chooseNewPhoto(event.dataTransfer.files?.[0]); }} className="mt-5 flex min-h-40 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--admin-green)] bg-emerald-50/40 px-5 py-8 text-center transition hover:border-[var(--admin-gold)] hover:bg-amber-50 disabled:opacity-50"><ImageIcon className="mb-2 text-[var(--admin-green)]" size={28} /><span className="font-semibold">Drag a photo here or click to choose</span><span className="mt-2 text-xs text-[var(--admin-muted)]">JPG, PNG, WebP, AVIF · Maximum size 10 MB</span></button> : <div className="mt-5 grid gap-5 rounded-xl border border-[var(--admin-border)] bg-slate-50 p-4 sm:grid-cols-[180px_1fr] sm:items-center"><div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-white"><Image src={newPhotoPreview} alt="Preview of selected Gallery photo" fill unoptimized className="object-contain" /></div><div className="min-w-0"><p className="truncate font-semibold">{newPhotoFile.name}</p><p className="mt-1 text-sm text-[var(--admin-muted)]">{(newPhotoFile.size / (1024 * 1024)).toFixed(2)} MB</p>{newPhotoStatus ? <p role="status" className="mt-3 text-sm font-semibold text-[var(--admin-green-dark)]">{newPhotoStatus.split("|")[0]}</p> : null}{newPhotoError ? <p role="alert" className="mt-3 text-sm font-semibold text-red-700">{newPhotoError}</p> : null}<div className="mt-4 flex flex-wrap gap-2"><Button type="button" disabled={!newPhotoFile || uploading} onClick={() => void uploadNewPhoto()}>{uploading ? "Uploading…" : "Upload photo"}</Button><Button type="button" variant="outline" disabled={uploading} onClick={clearNewPhoto}>Cancel / Remove</Button></div></div></div>}
-      {newPhotoStatus && !newPhotoFile ? <div className="mt-4 flex items-center gap-3 rounded-lg bg-emerald-50 p-3 text-sm text-[var(--admin-green-dark)]"><span role="status" className="font-semibold">{newPhotoStatus.split("|")[0]}</span><a href="#uploaded-gallery-photo" onClick={() => { setFilterPageOverride("Gallery page"); router.replace(`/admin/gallery?page=gallery&added=${encodeURIComponent(newPhotoStatus.split("|")[1] ?? "")}`); }} className="font-semibold underline">View photo</a></div> : null}
-      {newPhotoError && !newPhotoFile ? <div role="alert" className="mt-4 flex items-center gap-3 text-sm text-red-700"><span>{newPhotoError}</span><Button type="button" variant="outline" onClick={() => newPhotoInput.current?.click()}>Choose another photo</Button></div> : null}
+    <section className="rounded-2xl border border-[var(--admin-border)] bg-white p-5 shadow-sm sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Add photos or videos to Gallery</h2><span className="mt-2 inline-flex rounded-full bg-[var(--admin-gold-light)] px-3 py-1 text-xs font-semibold text-[var(--admin-ink)]">Add up to 10 at a time to the public Gallery page</span></div></div>
+      <div className="mt-5 max-w-sm"><label htmlFor="gallery-upload-category" className="block text-sm font-semibold">Category <span className="text-red-600">*</span></label><select id="gallery-upload-category" required value={newPhotoCategory} onChange={(event) => { setNewPhotoCategory(event.target.value); setNewPhotoError(""); }} disabled={uploading} className="mt-1 min-h-10 w-full rounded-lg border border-[var(--admin-border)] bg-white px-3 text-sm"><option value="">Choose a category…</option>{GALLERY_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select><p className="mt-1 text-xs text-[var(--admin-muted)]">Choose one of the five categories. Every item also appears under “All”.</p></div>
+      <input ref={newPhotoInput} type="file" multiple accept="image/jpeg,image/png,image/webp,image/avif,video/mp4,video/webm,video/quicktime" disabled={uploading} onChange={(event) => chooseNewPhotos(event.target.files ?? undefined)} className="sr-only" aria-label="Choose up to 10 photos or videos to add to Gallery" />
+      {!newPhotoFiles.length ? <button type="button" disabled={uploading} onClick={() => newPhotoInput.current?.click()} onDragOver={(event) => { event.preventDefault(); event.currentTarget.classList.add("border-[var(--admin-gold)]", "bg-amber-50"); }} onDragLeave={(event) => { event.currentTarget.classList.remove("border-[var(--admin-gold)]", "bg-amber-50"); }} onDrop={(event) => { event.preventDefault(); event.currentTarget.classList.remove("border-[var(--admin-gold)]", "bg-amber-50"); chooseNewPhotos(event.dataTransfer.files); }} className="mt-5 flex min-h-40 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--admin-green)] bg-emerald-50/40 px-5 py-8 text-center transition hover:border-[var(--admin-gold)] hover:bg-amber-50 disabled:opacity-50"><ImageIcon className="mb-2 text-[var(--admin-green)]" size={28} /><span className="font-semibold">Drag files here or click to choose</span><span className="mt-2 text-xs text-[var(--admin-muted)]">Up to 10 · Images up to 10 MB each, videos up to 50 MB each</span></button> : <div className="mt-5 rounded-xl border border-[var(--admin-border)] bg-slate-50 p-4"><p className="mb-3 font-semibold">{newPhotoFiles.length} file{newPhotoFiles.length === 1 ? "" : "s"} selected</p><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{newPhotoFiles.map((file, index) => <div key={`${file.name}-${file.lastModified}-${index}`} className="flex min-w-0 items-center gap-3 rounded-lg bg-white p-2"><div className="relative h-14 w-16 shrink-0 overflow-hidden rounded bg-slate-100">{file.type.startsWith("image/") ? <Image src={newPhotoPreviews[index]} alt="" fill unoptimized className="object-cover" /> : <span className="grid h-full place-items-center text-xs font-bold text-slate-500">VIDEO</span>}</div><div className="min-w-0"><p className="truncate text-sm font-medium">{file.name}</p><p className="text-xs text-[var(--admin-muted)]">{(file.size / (1024 * 1024)).toFixed(1)} MB</p></div></div>)}</div>{newPhotoStatus ? <p role="status" className="mt-3 text-sm font-semibold text-[var(--admin-green-dark)]">{newPhotoStatus.split("|")[0]}</p> : null}{newPhotoError ? <p role="alert" className="mt-3 text-sm font-semibold text-red-700">{newPhotoError}</p> : null}<div className="mt-4 flex flex-wrap gap-2"><Button type="button" disabled={uploading || !newPhotoCategory} onClick={() => void uploadNewPhoto()}>{uploading ? "Uploading…" : `Add ${newPhotoFiles.length} ${newPhotoFiles.length === 1 ? "item" : "items"}`}</Button><Button type="button" variant="outline" disabled={uploading} onClick={clearNewPhoto}>Clear</Button></div></div>}
+      {newPhotoStatus && !newPhotoFiles.length ? <div className="mt-4 flex items-center gap-3 rounded-lg bg-emerald-50 p-3 text-sm text-[var(--admin-green-dark)]"><span role="status" className="font-semibold">{newPhotoStatus.split("|")[0]}</span><a href="#uploaded-gallery-photo" onClick={() => { setFilterPageOverride("Gallery page"); router.replace(`/admin/gallery?page=gallery&added=${encodeURIComponent(newPhotoStatus.split("|")[1] ?? "")}`); }} className="font-semibold underline">View gallery</a></div> : null}
+      {newPhotoError && !newPhotoFiles.length ? <div role="alert" className="mt-4 flex items-center gap-3 text-sm text-red-700"><span>{newPhotoError}</span><Button type="button" variant="outline" onClick={() => newPhotoInput.current?.click()}>Choose files</Button></div> : null}
     </section>
   </section>;
 }
@@ -689,11 +755,7 @@ function SubscribersPanel({ subscribers, busy, error, onExport, onMutate, onRefr
     catch (cause) { setFailure(cause instanceof Error ? cause.message : "Could not delete subscriber."); }
   }
   if (error) return <div><ErrorState title="Could not load subscribers" description={error} /><Button className="mt-3" variant="outline" onClick={() => void onRefresh()}>Retry</Button></div>;
-  return <div className="mt-2 space-y-4">{toast ? <Toast>{toast}</Toast> : null}{failure ? <ErrorState title="Subscriber action failed" description={failure} /> : null}<div className="grid gap-3 sm:grid-cols-2"><Card><p className="text-sm text-[var(--admin-muted)]">Total subscribers</p><p className="mt-1 text-3xl font-bold text-[var(--admin-green-dark)]">{subscribers.length}</p></Card><Card><p className="text-sm text-[var(--admin-muted)]">Active</p><p className="mt-1 text-3xl font-bold text-[var(--admin-green-dark)]">{activeCount}</p></Card></div><Card title="Subscribers"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div className="w-full max-w-md"><Input aria-label="Search subscribers by email" placeholder="Search email…" value={query} onChange={(event) => setQuery(event.target.value)} /></div><div className="flex gap-2"><Link href="/admin/settings?panel=newsletter" className="inline-flex min-h-10 items-center rounded-lg border border-[var(--admin-border)] px-4 py-2 text-sm font-semibold">Send newsletter</Link><Button type="button" onClick={onExport}>Export CSV</Button></div></div>{busy ? <LoadingState label="Updating subscriber…" /> : null}{rows.length ? <Table headers={["Email", "Status", "Joined", "Actions"]}>{rows.map((item) => <tr key={item.id} className="border-b border-slate-100"><td className="p-3 font-medium">{item.email}</td><td className="p-3"><Badge variant={item.status === "unsubscribed" ? "neutral" : "success"}>{item.status ?? "active"}</Badge></td><td className="p-3">{new Date(item.created_at).toLocaleDateString()}</td><td className="p-3"><Button type="button" variant="danger" onClick={() => setDeleteTarget(item)}>Delete</Button></td></tr>)}</Table> : <EmptyState title="No subscribers yet" description="Try another email search." />}</Card>{deleteTarget ? <ConfirmDialog open title="Delete this subscriber?" description={`Delete ${deleteTarget.email} from the subscriber list? This cannot be undone.`} confirmLabel="Delete subscriber" onCancel={() => setDeleteTarget(null)} onConfirm={() => void remove(deleteTarget)} /> : null}</div>;
-}
-
-function NewsletterPlaceholder() {
-  return <Card className="mt-4" title="Send newsletter"><div className="space-y-4"><p className="text-sm text-[var(--admin-muted)]">Compose a newsletter for subscribers. Sending is not available yet.</p><Badge variant="gold">Backend pending</Badge><label className="block text-sm font-semibold">Subject<input disabled placeholder="Newsletter subject" className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><label className="block text-sm font-semibold">Message<textarea disabled rows={8} placeholder="Write your newsletter…" className="mt-1 w-full rounded-lg border border-[var(--admin-border)] px-3 py-2" /></label><Button type="button" variant="primary" disabled><Mail size={16} className="mr-2" />Send newsletter</Button></div></Card>;
+  return <div className="mt-2 space-y-4">{toast ? <Toast>{toast}</Toast> : null}{failure ? <ErrorState title="Subscriber action failed" description={failure} /> : null}<div className="grid gap-3 sm:grid-cols-2"><Card><p className="text-sm text-[var(--admin-muted)]">Total subscribers</p><p className="mt-1 text-3xl font-bold text-[var(--admin-green-dark)]">{subscribers.length}</p></Card><Card><p className="text-sm text-[var(--admin-muted)]">Active</p><p className="mt-1 text-3xl font-bold text-[var(--admin-green-dark)]">{activeCount}</p></Card></div><Card title="Subscribers"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div className="w-full max-w-md"><Input aria-label="Search subscribers by email" placeholder="Search email…" value={query} onChange={(event) => setQuery(event.target.value)} /></div><div className="flex flex-wrap gap-2"><Link href="/admin/settings?panel=newsletter" className="inline-flex min-h-10 items-center rounded-lg border border-[var(--admin-border)] px-4 py-2 text-sm font-semibold">Send newsletter</Link><Button type="button" onClick={onExport}>Export CSV</Button></div></div>{busy ? <LoadingState label="Updating subscriber…" /> : null}{rows.length ? <Table headers={["Email", "Status", "Joined", "Actions"]}>{rows.map((item) => <tr key={item.id} className="border-b border-slate-100"><td className="p-3 font-medium">{item.email}</td><td className="p-3"><Badge variant={item.status === "unsubscribed" ? "neutral" : "success"}>{item.status ?? "active"}</Badge></td><td className="p-3">{new Date(item.created_at).toLocaleDateString()}</td><td className="p-3"><Button type="button" variant="danger" onClick={() => setDeleteTarget(item)}>Delete</Button></td></tr>)}</Table> : <EmptyState title="No subscribers yet" description="Try another email search." />}</Card>{deleteTarget ? <ConfirmDialog open title="Delete this subscriber?" description={`Delete ${deleteTarget.email} from the subscriber list? This cannot be undone.`} confirmLabel="Delete subscriber" onCancel={() => setDeleteTarget(null)} onConfirm={() => void remove(deleteTarget)} /> : null}</div>;
 }
 
 type CmsSectionMutation = (payload: Record<string, unknown>) => Promise<{ ok: boolean; data?: DashboardData; error?: string }>;
@@ -942,7 +1004,7 @@ function buildSearchHits(data: DashboardData, query: string): SearchHit[] {
     const isTestimony = section.section_key.includes("testimonial") || section.section_key === "about_trust";
     if (!isService && !isTestimony && ["email_welcome", "global_brand"].includes(section.section_key) && !/title|heading|body|description|name|tagline|email|phone|address/i.test(query)) continue;
     const type: SearchType = isService ? "Services" : isTestimony ? "Testimonies" : "Page Content";
-    const href = type === "Services" ? "/admin/services" : type === "Testimonies" ? "/admin/testimonies" : `/admin/site-content?section=${encodeURIComponent(section.section_key)}${section.section_key === "gallery_content" ? "&tab=gallery" : ""}`;
+    const href = type === "Services" ? "/admin/services" : type === "Testimonies" ? "/admin/testimonies" : section.section_key === "gallery_content" ? "/admin/gallery" : `/admin/site-content?section=${encodeURIComponent(section.section_key)}`;
     const lockedSection = ["hero", "services_hero"].includes(section.section_key);
     if (lockedSection) add({ type, title: section.label, text: excerpt(flat, query), href, locked: true, key: section.section_key }, `${section.label} ${flat}`);
     else for (const [index, text] of flat.split(" · ").entries()) add({ type, title: `${section.label} · ${index + 1}`, text, href, locked: containsLockedData(text, section.section_key), key: `${section.section_key}-${index}` }, `${section.label} ${text}`);
@@ -958,14 +1020,24 @@ function getSectionPhotos(section: Section): PhotoRef[] {
   const lockedSection = ["hero", "services_hero"].includes(section.section_key);
   const walk = (value: unknown, path: string[], sectionLabel: string) => {
     if (Array.isArray(value)) {
-      value.forEach((item, index) => walk(item, [...path, String(index)], sectionLabel));
+      value.forEach((item, index) => {
+        let label = sectionLabel;
+        if (section.section_key === "services_detail" && path.length === 1 && path[0] === "items" && item && typeof item === "object") {
+          const record = item as Record<string, unknown>;
+          label = String(record.title ?? record.name ?? sectionLabel);
+        }
+        walk(item, [...path, String(index)], label);
+      });
       return;
     }
     if (!value || typeof value !== "object") return;
     for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-      const sectionName = key === "items" || key === "slides" || key === "services" ? humanize(sectionLabel === section.section_key ? key : sectionLabel) : sectionLabel;
+      if (section.section_key === "services_detail" && path.length === 2 && path[0] === "items" && key === "image") continue;
+      if (section.section_key === "services_categories" && key === "featurePoster") continue;
+      const isSubservices = section.section_key === "services_detail" && key === "services";
+      const sectionName = isSubservices ? `${sectionLabel} subservices` : key === "items" || key === "slides" || key === "services" ? humanize(sectionLabel === section.section_key ? key : sectionLabel) : sectionLabel;
       if (typeof child === "string" && /^(?:image|imageUrl|src|posterImageUrl|featurePoster|logoUrl)$/i.test(key) && child) {
-        const fieldLocked = lockedSection || /map|destination/i.test(key) || /^(?:hero|services_hero)$/.test(section.section_key) || ["services_categories", "services_detail"].includes(section.section_key) && /(?:^|\.)items\.\d+\.(?:image|featurePoster|services\.\d+\.image)$/.test([...path, key].join("."));
+        const fieldLocked = lockedSection;
         refs.push({ key: `${section.section_key}:${[...path, key].join(".")}`, page, section: sectionLabel, url: child, alt: String((value as Record<string, unknown>).imageAlt ?? (value as Record<string, unknown>).alt ?? (value as Record<string, unknown>).title ?? (value as Record<string, unknown>).name ?? ""), caption: String((value as Record<string, unknown>).caption ?? (value as Record<string, unknown>).title ?? (value as Record<string, unknown>).name ?? ""), locked: fieldLocked, path: [...path, key], sectionKey: section.section_key });
       } else walk(child, [...path, key], sectionName);
     }

@@ -13,6 +13,9 @@ type PopularService = {
   href: string;
   icon: string;
   badge?: string;
+  image?: string;
+  categorySlug?: string;
+  subservice?: string;
 };
 
 const POPULAR_SERVICES: PopularService[] = [
@@ -109,7 +112,7 @@ export default function PopularServices({ content = {} }: { content?: { heading?
               ) : null}
 
               <div className="relative mx-auto aspect-[4/3] w-full overflow-hidden rounded-[10px] border border-[color-mix(in_srgb,var(--ink)_8%,transparent)]">
-                <Image src={imageSlot.file} alt="" width={600} height={450} sizes="(max-width: 767px) 260px, 320px" placeholder="blur" blurDataURL={imageSlot.blurDataURL} loading="lazy" className="h-full w-full object-cover" />
+                <Image src={service.image ?? imageSlot.file} alt={service.title} width={600} height={450} sizes="(max-width: 767px) 260px, 320px" placeholder="blur" blurDataURL={imageSlot.blurDataURL} loading="lazy" className="h-full w-full object-cover" />
               </div>
 
               <h3 className="mt-5 text-lg font-bold leading-6 text-white md:text-xl md:leading-7">

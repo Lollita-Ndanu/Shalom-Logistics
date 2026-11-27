@@ -45,6 +45,13 @@ const STEPS: readonly Step[] = [
   },
 ];
 
+const ICONS: Record<string, LucideIcon> = {
+  ClipboardList,
+  CalendarDays,
+  Truck,
+  CircleCheck,
+};
+
 const easeInOutCubic = (value: number) =>
   value < 0.5
     ? 4 * value * value * value
@@ -55,7 +62,13 @@ const getCardProgress = (scrollProgress: number, start: number, end: number) => 
   return 100 * (1 - easeInOutCubic(clamped));
 };
 
-export default function HowItWorks() {
+export default function HowItWorks({ content = {} }: { content?: { heading?: string; intro?: string; steps?: { title?: string; description?: string; icon?: string; isVisible?: boolean }[] } }) {
+  const source = content.steps?.length ? content.steps : STEPS.map((step) => ({ title: step.title, description: step.description, icon: "", isVisible: true }));
+  const steps: Step[] = source.slice(0, 4).filter((step) => step.isVisible !== false).map((step, index) => ({
+    title: step.title ?? STEPS[index]?.title ?? "",
+    description: step.description ?? STEPS[index]?.description ?? "",
+    icon: (step.icon && ICONS[step.icon]) || STEPS[index]?.icon || ClipboardList,
+  }));
   const sectionRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -145,15 +158,15 @@ export default function HowItWorks() {
               id="how-it-works-heading"
               className="text-4xl font-bold leading-tight sm:text-5xl"
             >
-              How It Works
+              {content.heading ?? "How It Works"}
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-white/80 sm:text-xl">
-              Four simple steps from first call to settled in.
+              {content.intro ?? "Four simple steps from first call to settled in."}
             </p>
           </div>
 
           <ol className="how-it-works-list relative mx-auto mt-20 h-[390px] max-w-[1100px] sm:h-[300px]">
-            {STEPS.map((step, index) => {
+            {steps.map((step, index) => {
               const Icon = step.icon;
               const transform = cardTransforms[index];
 

@@ -82,7 +82,7 @@ export default function MobileMenu({ isOpen, onClose, navLinks = NAV_LINKS, path
             aria-modal="true"
             aria-label="Mobile navigation menu"
           >
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-5 max-md:border-white/[0.12] max-md:bg-jungle max-md:px-4 max-md:py-3">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-5 max-md:border-b-0 max-md:bg-jungle max-md:px-4 max-md:py-3">
               <span className="text-lg font-bold text-jungle max-md:text-white">Menu</span>
               <button
                 onClick={onClose}
@@ -94,7 +94,7 @@ export default function MobileMenu({ isOpen, onClose, navLinks = NAV_LINKS, path
             </div>
 
             <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-6 max-md:flex-none max-md:overflow-visible max-md:px-0 max-md:py-0">
-              <ul className="space-y-1 max-md:space-y-0 max-md:divide-y max-md:divide-white/[0.12]">
+              <ul className="space-y-1 max-md:space-y-0">
                 {navLinks.map((link, i) => {
                   const isActive = pathname === link.href;
                   return (
@@ -129,14 +129,20 @@ export default function MobileMenu({ isOpen, onClose, navLinks = NAV_LINKS, path
               </ul>
             </nav>
 
-            <div className="shrink-0 space-y-3 border-t border-gray-100 bg-gray-50/50 px-6 py-5 max-md:border-white/[0.12] max-md:bg-transparent max-md:px-4 max-md:pt-5 max-md:pb-5">
-              <Link
-                href={quoteHref}
-                onClick={onClose}
-                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gold px-4 py-3 font-semibold text-white transition-colors hover:bg-gold-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jungle max-md:h-[52px] max-md:min-h-[52px] max-md:border max-md:border-jungle-light max-md:bg-jungle max-md:hover:bg-jungle-light max-md:focus-visible:ring-white"
+            <div className="shrink-0 space-y-3 border-t border-gray-100 bg-gray-50/50 px-6 py-5 max-md:border-t-0 max-md:bg-transparent max-md:px-4 max-md:pt-5 max-md:pb-5">
+              <motion.div
+                initial={{ scale: 0.85, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 320, damping: 18, delay: 0.12 }}
               >
-                {quoteLabel}
-              </Link>
+                <Link
+                  href={quoteHref}
+                  onClick={onClose}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gold px-4 py-3 font-semibold text-white transition-colors hover:bg-gold-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jungle max-md:h-[52px] max-md:min-h-[52px] max-md:border max-md:border-jungle-light max-md:bg-jungle max-md:hover:bg-jungle-light max-md:focus-visible:ring-white"
+                >
+                  {quoteLabel}
+                </Link>
+              </motion.div>
               <div className="flex flex-col gap-2 text-sm text-gray-600 max-md:hidden">
                 <a
                   href={`tel:${phone1}`}

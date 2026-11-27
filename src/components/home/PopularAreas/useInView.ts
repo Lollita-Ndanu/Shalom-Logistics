@@ -1,34 +1,25 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { POPULAR_AREAS_REVEAL } from "./RevealHeading";
 
-export function useInViewOnce<T extends HTMLElement>() {
+export function useInView<T extends HTMLElement>() {
   const ref = useRef<T>(null);
-  const [revealed, setRevealed] = useState(false);
+  const [inView, setInView] = useState(false);
 
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      window.setTimeout(() => setRevealed(true), 0);
+      window.setTimeout(() => setInView(true), 0);
       return;
     }
-    if (!("IntersectionObserver" in window)) {
-      const timeout = setTimeout(() => setRevealed(true), POPULAR_AREAS_REVEAL.safetyMs);
-      return () => window.clearTimeout(timeout);
-    }
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        window.clearTimeout(safety);
-        setRevealed(true);
-        observer.disconnect();
-      }
-    }, { threshold: POPULAR_AREAS_REVEAL.sectionThreshold, rootMargin: POPULAR_AREAS_REVEAL.sectionRootMargin });
-    const safety = window.setTimeout(() => { setRevealed(true); observer.disconnect(); }, POPULAR_AREAS_REVEAL.safetyMs);
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), {
+      threshold: 0,
+      rootMargin: "0px 0px -10% 0px",
+    });
     observer.observe(element);
-    return () => { observer.disconnect(); window.clearTimeout(safety); };
+    return () => observer.disconnect();
   }, []);
 
-  return { ref, revealed };
+  return { ref, revealed: inView };
 }

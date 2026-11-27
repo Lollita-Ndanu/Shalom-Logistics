@@ -155,22 +155,6 @@ export default function MainServiceCategories({ categories = SERVICE_CATEGORIES,
           ))}
         </div>
       </div>
-
-      <div
-        className="pointer-events-none absolute inset-x-0 -bottom-px z-20 h-16 sm:h-20 lg:h-24"
-        aria-hidden="true"
-      >
-        <svg
-          viewBox="0 0 1440 100"
-          preserveAspectRatio="none"
-          className="block h-full w-full"
-        >
-          <path
-            d="M0,24 C240,76 480,4 720,42 C960,80 1200,8 1440,24 L1440,100 L0,100 Z"
-            className="fill-white"
-          />
-        </svg>
-      </div>
     </section>
   );
 }
