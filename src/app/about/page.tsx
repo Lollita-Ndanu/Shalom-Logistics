@@ -114,9 +114,9 @@ export default async function AboutPage() {
         {sections.about_purpose?.isVisible !== false ? <PurposeSlideshow content={{ heading: String(purpose.heading ?? "Purpose in every move."), intro: String(purpose.intro ?? ""), valuesHeading: String(purpose.valuesHeading ?? ""), goalsHeading: String(purpose.goalsHeading ?? ""), slides: visibleItems((purpose.slides as { title: string; heading: string; body: string; image: string; imageAlt: string; isVisible?: boolean }[] | undefined) ?? []), values: visibleItems((purpose.values as { title: string; description: string; isVisible?: boolean }[] | undefined) ?? []), goals: visibleItems((purpose.goals as { title: string; description: string; isVisible?: boolean }[] | undefined) ?? []) }} /> : null}
       </main>
 
-      {/* 4. Customer quotes underlay, covered by the shared Footer layer */}
-      <div className="relative h-[200dvh]">
-        <div className="sticky top-0 z-0 h-dvh overflow-y-auto">
+      {/* 4. Customer quotes underlay, covered by the shared Footer layer on desktop; stacked normally on mobile */}
+      <div className="relative md:h-[200dvh]">
+        <div className="md:sticky md:top-0 md:z-0 md:h-dvh md:overflow-y-auto">
         {sections.about_trust?.isVisible !== false ? <section
           aria-labelledby="customer-words-heading"
           className="min-h-full bg-[color-mix(in_srgb,var(--color-jungle-dark)_8%,white)] px-4 py-20 text-jungle-dark sm:px-6 sm:py-24 lg:px-8 lg:py-28"
@@ -150,7 +150,7 @@ export default async function AboutPage() {
         </section> : null}
         </div>
 
-        <div className="sticky top-0 z-20 h-dvh overflow-y-auto">
+        <div className="md:sticky md:top-0 md:z-20 md:h-dvh md:overflow-y-auto">
           <Footer />
         </div>
       </div>

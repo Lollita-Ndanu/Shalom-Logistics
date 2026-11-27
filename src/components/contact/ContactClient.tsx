@@ -111,8 +111,8 @@ function ExternalArrow() {
 
 function FooterHairline({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative h-[200dvh] bg-black">
-      <div className="sticky top-0 z-10 h-dvh overflow-y-auto border-t border-white/[0.12] bg-jungle-dark">
+    <div className="relative bg-black md:h-[200dvh]">
+      <div className="border-t border-white/[0.12] bg-jungle-dark md:sticky md:top-0 md:z-10 md:h-dvh md:overflow-y-auto">
         {children}
       </div>
     </div>

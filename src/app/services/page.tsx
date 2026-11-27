@@ -60,11 +60,11 @@ export default async function ServicesPage() {
         </div>
       </div>
       {visible("services_areas") ? <PopularAreasTrain content={areasContent} /> : null}
-      <div className="relative h-[200dvh]">
-        <div className="sticky top-0 z-10 h-dvh overflow-hidden">
+      <div className="relative md:h-[200dvh]">
+        <div className="h-dvh overflow-hidden md:sticky md:top-0 md:z-10">
           {visible("services_cta") ? <CtaBanner heading={String(cta.heading ?? "")} subtext={String(cta.subtext ?? "")} primaryLabel={String(cta.primaryLabel ?? "")} primaryHref={String(cta.primaryHref ?? "")} secondaryLabel={String(cta.secondaryLabel ?? "")} secondaryHref={String(cta.secondaryHref ?? "")} secondaryTarget={cta.secondaryTarget as "_blank" | "_self" | undefined} secondaryRel={String(cta.secondaryRel ?? "")} /> : null}
         </div>
-        <div className="sticky top-0 z-20 h-dvh overflow-y-auto">
+        <div className="md:sticky md:top-0 md:z-20 md:h-dvh md:overflow-y-auto">
           <Footer />
         </div>
       </div>
